@@ -114,7 +114,7 @@ export default function Dashboard() {
                   </p>
                 </div>
                 <Link href="/about">
-                  <Button variant="link" className="p-0 h-auto text-xs text-primary hover:text-primary/80">
+                  <Button variant="ghost" className="p-0 h-auto text-xs text-primary hover:text-primary/80">
                     Read the full research paper →
                   </Button>
                 </Link>

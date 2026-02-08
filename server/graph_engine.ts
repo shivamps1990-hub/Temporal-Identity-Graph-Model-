@@ -152,7 +152,7 @@ export class GraphEngine {
       }
 
       // Find outgoing edges
-      for (const edge of this.edges.values()) {
+      for (const edge of Array.from(this.edges.values())) {
         if (edge.source === id) {
           // Avoid cycles in current path
           if (path.some(p => p.source === edge.target)) continue;
@@ -176,10 +176,10 @@ export class GraphEngine {
     
     // Example Threat 1: IT to OT Bridge
     // Look for paths from Platform=Enterprise/AWS -> Platform=OT
-    for (const node of this.nodes.values()) {
+    for (const node of Array.from(this.nodes.values())) {
         if (node.platform === 'ot') {
             // Check incoming edges from non-OT
-            for (const edge of this.edges.values()) {
+            for (const edge of Array.from(this.edges.values())) {
                 if (edge.target === node.id) {
                     const sourceNode = this.nodes.get(edge.source);
                     if (sourceNode && sourceNode.platform !== 'ot') {

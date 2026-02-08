@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, type NormalizedEvent } from "@shared/routes";
+import { api } from "@shared/routes";
+import { type NormalizedEvent } from "@shared/schema";
 
 export function useInjectEvent() {
   const queryClient = useQueryClient();
