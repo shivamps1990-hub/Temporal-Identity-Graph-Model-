@@ -1,0 +1,115 @@
+Traditional IAM models assume that access is something directly assigned:
+
+a user is added to a role,
+
+a role has permissions,
+
+a service account is granted access to a resource.
+
+Security analysis is then done by inspecting these static assignments at a point in time.
+
+That approach works reasonably well for stable, human identities.
+It starts to break down when identities are non-human, ephemeral, and delegated.
+
+What “access emerges from paths over time” actually means
+
+In modern environments, access is rarely the result of a single assignment.
+It is often the result of a chain of relationships that only coexist for a limited time.
+
+For example:
+
+a developer authenticates to a CI/CD system,
+
+the pipeline assumes a cloud role,
+
+that role deploys a workload,
+
+the workload communicates with an OT gateway,
+
+the gateway controls a PLC.
+
+No single permission explicitly says “developer controls PLC”.
+But a path exists, and if all links in that path are valid at the same time, access is possible.
+
+This is what I mean by access emerging from paths, not assignments.
+
+Why time is critical
+
+Most of these relationships are:
+
+temporary (tokens, assumed roles),
+
+event-driven (pipelines, jobs),
+
+inferred (OT communication),
+
+and constantly changing.
+
+A snapshot-based model answers:
+
+“Who has access right now?”
+
+But many real incidents depend on:
+
+when a path briefly existed,
+
+how long an identity remained trusted after it stopped being used,
+
+or which relationships overlapped in time.
+
+By modeling identity as a temporal graph, you can ask:
+
+What access paths existed at time T?
+
+When did a risky path first appear?
+
+How long did it persist before anyone noticed?
+
+This is how you reason about delayed compromise and identity drift, not just misconfiguration.
+
+Blast radius becomes computable
+
+In a graph model, blast radius is not a guess—it’s a reachability problem.
+
+If an identity is compromised, you can compute:
+
+which nodes it can reach,
+
+through which paths,
+
+within a given path length,
+
+during a specific time window.
+
+Traditional IAM tools often approximate this using permissions lists.
+Graph-based reasoning lets you see the actual structural impact of compromise.
+
+Why IT → Cloud → OT paths matter
+
+OT systems don’t fit traditional IAM assumptions:
+
+devices don’t authenticate like users,
+
+trust is implicit in protocols,
+
+identity is inferred from behavior.
+
+By modeling OT entities as non-human identities inferred from observed interactions, they can be placed in the same graph as cloud and IT identities.
+
+That makes cross-domain attack paths visible, instead of treating OT as a disconnected asset inventory.
+
+The modeling gap
+
+So the gap I’m exploring is not “vendors ignore NHIs” — many don’t.
+
+The gap is that most systems still inherit a static, human-centric identity model, even when applied to non-human identities.
+
+Treating identity as a temporal graph shifts the question from:
+
+“Who was granted access?”
+
+to:
+
+“What trust paths existed, when did they exist, and what could they reach?”
+
+That shift enables kinds of reasoning that traditional IAM models fundamentally struggle with.
