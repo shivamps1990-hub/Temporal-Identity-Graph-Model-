@@ -1,11 +1,12 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Network, AlertTriangle, Database } from "lucide-react";
+import { LayoutDashboard, Network, AlertTriangle, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { href: "/", label: "Live Graph", icon: LayoutDashboard },
   { href: "/analysis", label: "Analysis", icon: Network },
   { href: "/threats", label: "Threats", icon: AlertTriangle },
+  { href: "/about", label: "About", icon: Info },
 ];
 
 export function Navigation() {

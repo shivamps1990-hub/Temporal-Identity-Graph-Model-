@@ -7,6 +7,7 @@ import { Navigation } from "@/components/Navigation";
 import Dashboard from "@/pages/Dashboard";
 import Analysis from "@/pages/Analysis";
 import Threats from "@/pages/Threats";
+import About from "@/pages/About";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -15,6 +16,7 @@ function Router() {
       <Route path="/" component={Dashboard} />
       <Route path="/analysis" component={Analysis} />
       <Route path="/threats" component={Threats} />
+      <Route path="/about" component={About} />
       <Route component={NotFound} />
     </Switch>
   );
