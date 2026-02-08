@@ -1,0 +1,352 @@
+Create Open Source NHI Temporal Identity Graph Research Prototype (Apache-2.0 ready)
+
+Context / Author
+
+Author: Shivam — CyberSecurity Professional. Use this name in the README and copyright headers.
+
+Purpose: Build an open-source research prototype that demonstrates the temporal identity graph model for Non-Human Identities (NHIs) across cloud, IT, CI/CD, Kubernetes, and OT. The repo must be ready for public release under the Apache License 2.0.
+
+High-level goal
+Create a runnable, documented Proof-of-Concept (PoC) with:
+
+deterministic temporal graph engine (in memory, option for Neo4j)
+
+normalization pipeline from logs → normalized identity events
+
+synthetic dataset generator with replayable scenarios
+
+REST APIs for ingestion, replay, snapshot, analysis
+
+minimal interactive frontend (React + Vite) for graph + temporal replay controls
+
+docs, tests, license, CONTRIBUTING.md, and CI to run unit tests and example scenarios
+
+Non-goals (do not implement)
+
+Do not add authentication/authorization (no login).
+
+Do not add ML or auto-remediation.
+
+Do not build SIEM-like dashboards (keep UI focused on graph + replay + path exploration).
+
+Do not use Next.js or server components.
+
+Keep the prototype single-host and simple to run: docker compose up or simple uvicorn + npm run dev.
+
+Required Tech Stack (must follow)
+
+Backend: Python 3.10+ + FastAPI
+
+Processing: deterministic update logic implemented in Python (clear function U(G, event) with idempotency)
+
+Graph: in-memory property graph (networkx or custom) + optional Neo4j integration (document how to enable but default to in-memory)
+
+Dataset & streaming: Python scripts to produce NDJSON event streams, seedable RNG for deterministic datasets
+
+Frontend: React (Vite) — simple interactive UI (graph visualization with vis-network/d3 or cytoscape)
+
+Persistence for demo: JSON files for snapshots (no DB by default)
+
+Container / run: docker-compose.yml to run backend + frontend
+
+Tests: pytest for backend logic and dataset generator
+
+Deliverables (files + functionality)
+
+Create the following files/folders in the repo:
+
+/README.md
+/LICENSE
+/NOTICE (optional)
+/CONTRIBUTING.md
+/CLA.md (lightweight contributor agreement - optional / template)
+/backend/
+  app/
+    main.py
+    api/
+      ingest.py
+      events.py
+      graph.py
+      analysis.py
+    model/
+      graph_engine.py   # U(G, event) implementation
+      types.py          # event schema dataclasses / pydantic
+      dataset_gen.py    # synthetic generator CLI
+    tests/
+      test_graph_update.py
+      test_replay.py
+  Dockerfile
+/frontend/
+  package.json
+  src/
+    App.jsx
+    GraphView.jsx
+    ReplayControls.jsx
+    EventPanel.jsx
+  Dockerfile
+/docker-compose.yml
+/examples/
+  scenarios/
+    baseline.ndjson
+    cicd_compromise.ndjson
+    cloud_ot_bridge.ndjson
+/scripts/
+  run_demo.sh
+  generate_data.sh
+/docs/
+  design.md      # formal model mapping to code
+  api.md         # API contract
+  runbook.md     # reproducible run instructions
+  license_and_patent_notice.md
+
+License & repo header
+
+Add LICENSE file with the full text of Apache License 2.0.
+
+In README and top-level files include this copyright header:
+
+Copyright 2026 Shivam
+Licensed under the Apache License, Version 2.0 (the "License");
+
+
+Add license_and_patent_notice.md that includes the short statement:
+
+This is a research prototype released under Apache-2.0. It is provided as-is for research and demonstration. This repository is intended for open research and does not represent a commercial product. (Optional: include a defensive patent notice line if desired.)
+
+CONTRIBUTING.md & CLA
+
+Create CONTRIBUTING.md with:
+
+repo structure summary
+
+branch strategy (main = stable, dev = daily)
+
+PR template instructions (tests required)
+
+how to run unit tests & scenarios
+
+Add CLA.md as a simple contributor license template that grants broad rights to the repo owner while protecting contributors; label it optional (explain how to accept CLA in PR).
+
+Backend: API contracts & behaviors (implement exactly)
+
+Implement FastAPI endpoints:
+
+POST /logs/upload
+
+Accept NDJSON or JSON array body and source_type query param (cloud, it, ot)
+
+For each log, parse via source-specific parser → generate zero or more normalized events (schema below) → apply U(G, event)
+
+Return { events_generated, nodes_added, edges_added, graph_version }
+
+POST /events/inject
+
+Accept normalized event JSON (single) → inject into graph via U(G,event) → return updated summary
+
+POST /events/replay
+
+Accept path to NDJSON file or array of normalized events → replay deterministically (record graph hash at the end) → return graph hash and stats
+
+GET /graph/snapshot?timestamp=T
+
+Return graph projection at time T (nodes & edges active at T with metadata)
+
+GET /analysis/reachability?source=A&target=B&k=K&timestamp=T
+
+Return all paths ≤ K in G(T) from A to B with event evidence (list of event_ids and timestamps)
+
+GET /analysis/blast-radius?source=A&k=K&timestamp=T
+
+Return list of reachable nodes, path evidence, and computed risk score using default max-rule
+
+GET /analysis/threats?timestamp=T
+
+Return list of detected graph-pattern threats (over-delegation, orphan NHI, it→ot path) with path evidence
+
+Normalized event schema (use Pydantic models):
+
+{
+  "event_id": "string",
+  "timestamp": "ISO-8601",
+  "subject": {
+    "id": "string",
+    "type": "HUMAN | WORKLOAD | SERVICE_ACCOUNT | PLC | HMI",
+    "platform": "enterprise | aws | ci_cd | k8s | ot",
+    "lifecycle_state": "ACTIVE | STALE | DECOMMISSIONED",
+    "risk_score": number
+  },
+  "relationships": [
+    {
+      "label": "AUTHENTICATES_WITH | ASSUMES | ACCESSES | COMMUNICATES_WITH | CONTROLS",
+      "target": {
+        "id": "string",
+        "type": "IDENTITY | RESOURCE"
+      }
+    }
+  ]
+}
+
+
+Implement strict validation and reject malformed events with 400 and a clear error.
+
+Core graph engine (must implement)
+
+Implement a function U(G, event) that:
+
+creates nodes if missing, sets first_seen when node created, updates last_seen = max(current, event.timestamp)
+
+creates edges (source_id, target_id, label) if missing; maintain first_seen/last_seen for edges
+
+uses idempotent operations (set unions, min/max times) so replaying same events yields identical graph
+
+store provenance: map node/edge → list of event_ids that created/updated it
+
+Maintain a graph_version as a hash of canonical serialization (used to assert deterministic replay)
+
+Dataset generator (must include)
+
+Implement CLI python -m backend.app.model.dataset_gen with flags:
+
+--seed SEED (int, deterministic)
+
+--days N (length of timeline)
+
+--events PER_DAY
+
+--scenario {baseline,cicd_compromise,cloud_ot_bridge,dormant_wakeup}
+
+Output NDJSON normalized events (not raw logs) to examples/scenarios/*.ndjson
+
+Include attack injections in cicd_compromise and cloud_ot_bridge that produce observable paths from human → CI/CD → cloud role → workload → OT gateway → PLC
+
+Ensure generator produces reproducible output with given seed; include SHA256 of output file in header
+
+Frontend (minimal, interactive)
+
+React app (Vite) with pages/components:
+
+GraphCanvas: visualizes GET /graph/snapshot?timestamp=T, nodes colored by type
+
+ReplayControls: time slider, timestamp input, play/pause/step
+
+EventPanel: list of normalized events and uploaded logs; clicking highlights impacted nodes/edges
+
+ThreatPanel: shows GET /analysis/threats?timestamp=T with "show path" button
+
+PathExplorer: reachability query UI (source/target/k)
+
+UI must use only read & analysis APIs; graph mutation only via log upload or events/inject endpoints
+
+Simple styling, mobile not required
+
+Tests & reproducibility
+
+Write pytest tests:
+
+test_graph_update.py: test idempotence (apply same event twice)
+
+test_replay.py: replay scenario twice, assert same final graph hash
+
+test_reachability.py: known scenario must return expected path
+
+Add GitHub Actions CI config to run tests on push (or Replit's CI if available)
+
+Runbook (docs/runbook.md)
+
+How to run locally:
+
+docker compose up should start backend + frontend
+
+Or manual: uvicorn backend.app.main:app --reload and npm run dev in frontend
+
+How to run generator:
+
+python backend/app/model/dataset_gen.py --seed 42 --scenario cicd_compromise --days 1 --events 100
+
+How to replay scenario:
+
+curl -X POST /events/replay -d @examples/scenarios/cicd_compromise.ndjson
+
+How to compute graph hash:
+
+provide CLI to serialize canonical graph and compute SHA256
+
+Documentation & arXiv/tech report
+
+Create docs/design.md with:
+
+Problem statement (short)
+
+Formal model G = (V, E, τ) and explanation in plain English
+
+Update function U(G, e) described algorithmically and sample pseudo-code
+
+Risk propagation options (max-rule described, multiplicative and attenuation optional) with plain explanation
+
+Create docs/api.md documenting endpoints and example requests/responses
+
+Create docs/runbook.md with reproducible steps
+
+Create paper/short_report.md — a concise tech report that can be used for arXiv submission (abstract, intro, formal model, experiments, datasets, limitations). Use neutral academic tone.
+
+README (top of repo)
+
+Short project description
+
+Quick start (docker compose)
+
+Link to demo (when hosted)
+
+How to run scenarios & reproduce experiments
+
+License statement (Apache-2.0)
+
+How to contribute (link to CONTRIBUTING.md)
+
+Author section: “Shivam — CyberSecurity Professional. Contact: [email placeholder]”
+
+CI & packaging
+
+Add docker-compose.yml to start backend + frontend + optional Neo4j service (Neo4j optional; keep commented out by default)
+
+Provide Makefile or scripts/run_demo.sh to automate dataset generation → replay → snapshot → compute hash
+
+Add GitHub Actions to run tests and dataset generation on push to main
+
+Success criteria (automated checks)
+
+When running the example scenario examples/scenarios/cicd_compromise.ndjson with seed 42:
+
+POST /events/replay returns graph_hash X (record expected hash)
+
+Replaying same file yields identical graph_hash
+
+GET /analysis/reachability for source=human-alice target=plc-press-01 returns at least one path with correct event evidence
+
+Frontend loads and can visualize GET /graph/snapshot?timestamp=T with nodes/edges
+
+Document expected hashes & sample queries in README.
+
+Final repository housekeeping
+
+Commit with clear messages:
+
+feat: initial prototype backend + graph engine
+
+chore: add Apache-2.0 license
+
+docs: add design doc and runbook
+
+Add .gitignore for Python / node / docker artifacts
+
+Add CODE_OF_CONDUCT.md (short) and SECURITY.md with vulnerability reporting instructions
+
+Add NOTICE with copyright and licensing summary (optional)
+
+Tone & messaging for the repo publish
+
+Use research-friendly language: “research prototype”, “for reproducibility & evaluation”, “not production-ready”
+
+Encourage contributions for experiments and reproduction
+
+State clearly: “If you plan to commercialize, contact the author” (optional)
