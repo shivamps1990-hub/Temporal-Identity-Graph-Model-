@@ -1,37 +1,58 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import { GraphEngine } from "./graph_engine";
+import { NormalizedEvent, GraphSnapshot } from "@shared/schema";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  // Graph Operations
+  injectEvent(event: NormalizedEvent): Promise<any>;
+  getGraphSnapshot(): Promise<GraphSnapshot>;
+  resetGraph(): Promise<void>;
+  
+  // Analysis
+  findReachability(source: string, target: string, k: number): Promise<any>;
+  analyzeThreats(): Promise<any>;
+  calculateBlastRadius(source: string, k: number): Promise<any>;
 }
 
 export class MemStorage implements IStorage {
-  private users: Map<string, User>;
+  private engine: GraphEngine;
 
   constructor() {
-    this.users = new Map();
+    this.engine = new GraphEngine();
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async injectEvent(event: NormalizedEvent): Promise<any> {
+    const result = this.engine.processEvent(event);
+    return {
+      ...result,
+      version: this.engine.getSnapshot().version
+    };
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async getGraphSnapshot(): Promise<GraphSnapshot> {
+    return this.engine.getSnapshot();
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async resetGraph(): Promise<void> {
+    this.engine.reset();
+  }
+
+  async findReachability(source: string, target: string, k: number): Promise<any> {
+    const paths = this.engine.findPaths(source, target, k);
+    return {
+      found: paths.length > 0,
+      paths
+    };
+  }
+
+  async analyzeThreats(): Promise<any> {
+    return this.engine.detectThreats();
+  }
+
+  async calculateBlastRadius(source: string, k: number): Promise<any> {
+    // Re-use BFS logic effectively
+    // Simple mock/wrapper for now as engine.findPaths is target-specific
+    // But we can iterate.
+    return { reachable_nodes: [] }; // Placeholder for the prototype step
   }
 }
 
