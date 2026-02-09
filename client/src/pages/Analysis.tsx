@@ -127,7 +127,7 @@ export default function Analysis() {
   }, [blastRadius]);
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col min-h-full bg-background" style={{ minHeight: '100vh' }}>
       <div className="p-6 pb-0">
         <div className="flex items-start justify-between flex-wrap gap-4 mb-4">
           <div>
@@ -174,7 +174,7 @@ export default function Analysis() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 flex gap-0">
+      <div className="flex-1 flex gap-0" style={{ minHeight: '500px' }}>
         <div className="w-[380px] shrink-0 border-r border-border overflow-y-auto p-4 space-y-4">
           {activeTab === "path" && (
             <>
@@ -231,7 +231,7 @@ export default function Analysis() {
                   <CardContent className="pt-4 space-y-3">
                     <div className={cn(
                       "p-3 rounded-md border text-sm",
-                      reachability.found ? "bg-red-50 border-red-200 text-red-800" : "bg-green-50 border-green-200 text-green-800"
+                      reachability.found ? "bg-red-950/50 border-red-800/60 text-red-300" : "bg-green-950/50 border-green-800/60 text-green-300"
                     )}>
                       {reachability.found
                         ? `${reachability.paths.length} path(s) found from ${sourceNode} to ${targetNode}`
@@ -412,7 +412,7 @@ export default function Analysis() {
         </div>
 
         <div className="flex-1 min-w-0 flex flex-col">
-          <div className="flex-1 min-h-0 relative">
+          <div className="flex-1 relative" style={{ minHeight: '400px' }}>
             <div className="absolute inset-0 rounded-none overflow-hidden border-b border-border">
               <GraphCanvas
                 nodes={snapshot?.nodes || []}

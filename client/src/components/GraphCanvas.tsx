@@ -46,7 +46,7 @@ const NODE_SIZES: Record<string, number> = {
   HMI: 6,
 };
 
-const BLAST_RING_COLORS = ['#3B82F6', '#7C3AED', '#DC2626', '#EA580C', '#059669', '#D97706'];
+const BLAST_RING_COLORS = ['#60A5FA', '#A78BFA', '#F87171', '#FB923C', '#34D399', '#FBBF24'];
 
 const APPEAR_DURATION_MS = 600;
 const DISAPPEAR_DURATION_MS = 400;
@@ -328,8 +328,8 @@ export function GraphCanvas({
 
     if (!currentTime) {
       let finalOpacity = 1;
-      if (highlightedPath) finalOpacity = pathNodeSet.has(node.id) ? 1 : 0.1;
-      else if (highlightedBlast) finalOpacity = blastNodeMap.has(node.id) ? 1 : 0.1;
+      if (highlightedPath) finalOpacity = pathNodeSet.has(node.id) ? 1 : 0.08;
+      else if (highlightedBlast) finalOpacity = blastNodeMap.has(node.id) ? 1 : 0.08;
       drawNode(node, ctx, globalScale, finalOpacity, 1, 0);
       return;
     }
@@ -337,8 +337,8 @@ export function GraphCanvas({
     if (anim.opacity <= 0.01) return;
 
     let finalOpacity = anim.opacity;
-    if (highlightedPath) finalOpacity *= pathNodeSet.has(node.id) ? 1 : 0.1;
-    else if (highlightedBlast) finalOpacity *= blastNodeMap.has(node.id) ? 1 : 0.1;
+    if (highlightedPath) finalOpacity *= pathNodeSet.has(node.id) ? 1 : 0.08;
+    else if (highlightedBlast) finalOpacity *= blastNodeMap.has(node.id) ? 1 : 0.08;
 
     drawNode(node, ctx, globalScale, finalOpacity, anim.scale, anim.glowRadius);
   }, [currentTime, highlightedPath, highlightedBlast, pathNodeSet, blastNodeMap]);
@@ -375,19 +375,27 @@ export function GraphCanvas({
 
     if (isBlastSource) {
       ctx.beginPath();
-      ctx.arc(x, y, size + 8, 0, 2 * Math.PI);
-      ctx.fillStyle = hexToRgba(BLAST_RING_COLORS[0], 0.08);
+      ctx.arc(x, y, size + 10, 0, 2 * Math.PI);
+      ctx.fillStyle = hexToRgba(BLAST_RING_COLORS[0], 0.15);
       ctx.fill();
-      ctx.strokeStyle = hexToRgba(BLAST_RING_COLORS[0], 0.25);
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = hexToRgba(BLAST_RING_COLORS[0], 0.5);
+      ctx.lineWidth = 2;
       ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(x, y, size + 14, 0, 2 * Math.PI);
+      ctx.strokeStyle = hexToRgba(BLAST_RING_COLORS[0], 0.2);
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
     }
 
     if (blastDist !== undefined && blastDist > 0) {
       const ringColor = BLAST_RING_COLORS[Math.min(blastDist - 1, BLAST_RING_COLORS.length - 1)];
       ctx.beginPath();
-      ctx.arc(x, y, size + 4, 0, 2 * Math.PI);
-      ctx.strokeStyle = hexToRgba(ringColor, 0.4);
+      ctx.arc(x, y, size + 5, 0, 2 * Math.PI);
+      ctx.strokeStyle = hexToRgba(ringColor, 0.6);
       ctx.lineWidth = 2;
       ctx.stroke();
     }
@@ -408,15 +416,15 @@ export function GraphCanvas({
     ctx.fill();
 
     if (isPathNode) {
-      ctx.strokeStyle = "#2563EB";
+      ctx.strokeStyle = "#60A5FA";
       ctx.lineWidth = 3;
       ctx.stroke();
     } else if (node.risk_score >= 70) {
-      ctx.strokeStyle = "#DC2626";
+      ctx.strokeStyle = "#EF4444";
       ctx.lineWidth = 2;
       ctx.stroke();
     } else {
-      ctx.strokeStyle = hexToRgba(color, 0.25);
+      ctx.strokeStyle = hexToRgba(color, 0.35);
       ctx.lineWidth = 1;
       ctx.stroke();
     }
@@ -426,7 +434,7 @@ export function GraphCanvas({
     ctx.font = `${fontSize}px 'IBM Plex Mono', monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillStyle = isPathNode ? '#1E40AF' : '#64748B';
+    ctx.fillStyle = isPathNode ? '#93C5FD' : '#94A3B8';
     ctx.fillText(label, x, y + size + 2);
 
     if (blastDist !== undefined) {
@@ -461,9 +469,9 @@ export function GraphCanvas({
 
     if (hasHighlight && !isPathEdge) {
       if (highlightedBlast) {
-        baseAlpha *= (blastNodeMap.has(srcId) && blastNodeMap.has(tgtId)) ? 0.6 : 0.06;
+        baseAlpha *= (blastNodeMap.has(srcId) && blastNodeMap.has(tgtId)) ? 0.7 : 0.04;
       } else {
-        baseAlpha *= 0.06;
+        baseAlpha *= 0.04;
       }
     }
 
@@ -483,10 +491,18 @@ export function GraphCanvas({
     ctx.lineTo(endX, endY);
 
     if (isPathEdge) {
-      ctx.strokeStyle = '#2563EB';
+      ctx.strokeStyle = hexToRgba('#60A5FA', 0.2);
+      ctx.lineWidth = 8;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(endX, endY);
+      ctx.strokeStyle = '#60A5FA';
       ctx.lineWidth = 3;
+      ctx.setLineDash([]);
     } else {
-      ctx.strokeStyle = '#94A3B8';
+      ctx.strokeStyle = '#64748B';
       ctx.lineWidth = 1;
     }
     ctx.stroke();
@@ -497,7 +513,7 @@ export function GraphCanvas({
     ctx.lineTo(endX - arrowLen * Math.cos(angle - Math.PI / 6), endY - arrowLen * Math.sin(angle - Math.PI / 6));
     ctx.lineTo(endX - arrowLen * Math.cos(angle + Math.PI / 6), endY - arrowLen * Math.sin(angle + Math.PI / 6));
     ctx.closePath();
-    ctx.fillStyle = isPathEdge ? '#2563EB' : '#94A3B8';
+    ctx.fillStyle = isPathEdge ? '#60A5FA' : '#64748B';
     ctx.fill();
 
     if (globalScale > 1.2 || isPathEdge) {
@@ -507,7 +523,7 @@ export function GraphCanvas({
       ctx.font = `${isPathEdge ? 'bold ' : ''}${labelSize}px 'IBM Plex Mono', monospace`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = isPathEdge ? '#1E40AF' : '#94A3B8';
+      ctx.fillStyle = isPathEdge ? '#93C5FD' : '#64748B';
       ctx.fillText(label, midX, midY - 4);
     }
 
@@ -559,16 +575,16 @@ export function GraphCanvas({
           {highlightedPath && (
             <div className="mt-1 pt-1 border-t border-border">
               <div className="flex items-center gap-2">
-                <div className="w-2.5 h-0.5 bg-blue-600" />
-                <span className="text-[10px] text-blue-700 font-medium">Active Path</span>
+                <div className="w-2.5 h-0.5 bg-blue-400" />
+                <span className="text-[10px] text-blue-300 font-medium">Active Path</span>
               </div>
             </div>
           )}
           {highlightedBlast && (
             <div className="mt-1 pt-1 border-t border-border">
               <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-blue-500/30 border border-blue-500" />
-                <span className="text-[10px] text-blue-700 font-medium">Blast Radius</span>
+                <div className="w-2.5 h-2.5 rounded-full bg-blue-500/30 border border-blue-400" />
+                <span className="text-[10px] text-blue-300 font-medium">Blast Radius</span>
               </div>
             </div>
           )}
