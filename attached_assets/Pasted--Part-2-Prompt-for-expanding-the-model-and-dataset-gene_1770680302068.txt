@@ -1,0 +1,129 @@
+✅ Part 2 — Prompt for expanding the model and dataset generation ideas
+
+Place this in an appropriate file such as RESEARCH_MODEL_IDEAS.md, CONTRIBUTING.md, or a dedicated FUTURE_WORK.md section:
+
+📌 Prompt — Expand Model Ideas & Generate More Datasets
+
+Use the following prompt verbatim to guide future dataset creation, scenario expansion, and modeling ideas:
+
+# Model Expansion and Dataset Generation Prompt
+
+This section describes a canonical prompt template that contributors can use
+to generate **new datasets** and **experimental modeling ideas** for
+the Temporal Identity Graph system, particularly focusing on
+Operational Technology (OT) scenarios and hybrid enterprise–OT attack surfaces.
+
+---
+
+## Purpose
+
+The goal is to create:
+1. **Diverse OT and IT–OT crossing scenarios** with realistic identity interactions
+2. **Synthetic datasets** that push temporal and structural complexity
+3. Models and experiments that stress-test reachability, blast radius,
+   delegated trust, and delayed compromise recovery
+
+---
+
+## Prompt Template
+
+Use this text as a basis for dataset generation and model idea exploration:
+
+
+
+Generate a synthetic dataset of identity and relationship events that includes:
+
+A mix of IT, Cloud, CI/CD, service accounts, automation tokens, and multiple classes of OT identities (PLCs, SCADA devices, industrial controllers, field sensors, gateways).
+
+Include high-frequency near-real-time event streams simulating:
+
+CI/CD pipelines triggering cloud role assumptions
+
+Workload deployments interacting with OT gateways
+
+Broadcast protocols common in OT (Modbus, DNP3, OPC UA)
+
+Service account rotations and expired credentials
+
+Include sequences that trigger the following complex patterns:
+
+Delayed blast radius: identities that appear dormant, then become active due to indirect delegation
+
+Transitive OT access: multi-hop identity paths from cloud workloads to OT controllers
+
+False orphaning: identities that appear orphaned but reconnect later via indirect delegation
+
+Mixed lifecycle churn: credentials being rotated, revoked, or shadowed over time
+
+Temporal compression: injection of events with variable timestamps to ensure:
+
+overlapping windows
+
+non-overlapping windows
+
+bursty events vs. slow churn
+
+Horizontal scaling: at least 100,000+ events across multiple threads to simulate:
+
+concurrent identity lifecycles
+
+noisy background traffic
+
+multi-unit OT clusters
+
+Required output format:
+
+NDJSON file
+
+Each object is a normalized identity event
+
+Must include:
+subject.id, subject.type, timestamp
+edge relationships with labels and targets
+
+Must be processable by the Temporal Identity Graph ingestion pipeline
+
+Output Expectations
+
+When running the above prompt through your dataset generator:
+
+The Temporal Identity Graph should produce:
+
+complex multi-domain identity paths
+
+non-trivial reachability
+
+visible blast radius computation patterns
+
+saturation of edge cases like identity resurrection, delayed trust decay, and ephemeral delegation reuse
+
+These datasets will be used for:
+
+benchmark experiments
+
+visual temporal path replay
+
+evaluation of model correctness and scalability
+
+
+---
+
+## Why this matters
+
+This prompt helps collaborators, researchers, and students explore **rich, realistic OT scenarios** that stress the model in ways not covered by the baseline scripts. It also provides a **repeatable template** for generating future datasets and comparative experiments.
+
+---
+
+## Placement Suggestion
+
+Add this prompt in:
+- `RESEARCH_MODEL_IDEAS.md`, OR
+- `CONTRIBUTING.md` under **“Dataset Generation”**, OR
+- `FUTURE_WORK.md`
+
+---
+
+If you’d like, I can also generate:
+- Example NDJSON datasets from this prompt
+- A script to automate dataset creation with parameterization
+- A section in README with example dataset usage for benchmarking
