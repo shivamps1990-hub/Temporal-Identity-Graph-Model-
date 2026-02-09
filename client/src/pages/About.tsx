@@ -21,7 +21,7 @@ export default function About() {
           </p>
           <div className="flex flex-wrap gap-3 justify-center md:justify-start">
             <Button variant="outline" size="sm" asChild>
-              <a href="https://www.linkedin.com/in/shivam-pratap-singh/" target="_blank" rel="noopener noreferrer">
+              <a href="https://www.linkedin.com/in/shivam-pratap-singh-058a692b/" target="_blank" rel="noopener noreferrer">
                 LinkedIn Profile
               </a>
             </Button>
