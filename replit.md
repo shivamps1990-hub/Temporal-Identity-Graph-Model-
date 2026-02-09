@@ -24,7 +24,7 @@ Preferred communication style: Simple, everyday language.
 ### Frontend (React + Vite)
 
 - **Framework**: React with TypeScript, bundled by Vite
-- **Routing**: Wouter (lightweight client-side router) with 4 pages: Dashboard (live graph), Analysis (path reachability & blast radius), Threats (automated detection), and About
+- **Routing**: Wouter (lightweight client-side router) with 5 pages: Home (research landing page at /), Dashboard (/dashboard, live graph), Analysis (/analysis, path reachability & blast radius), Threats (/threats, automated detection), and About Author (/about)
 - **State Management**: TanStack React Query for server state; local React state for UI
 - **Graph Visualization**: `react-force-graph-2d` for interactive force-directed graph rendering with color-coded node types (HUMAN, WORKLOAD, SERVICE_ACCOUNT, PLC, HMI)
 - **UI Components**: shadcn/ui (new-york style) with Radix primitives, Tailwind CSS, dark cybersecurity theme with monospace fonts (JetBrains Mono, Inter)

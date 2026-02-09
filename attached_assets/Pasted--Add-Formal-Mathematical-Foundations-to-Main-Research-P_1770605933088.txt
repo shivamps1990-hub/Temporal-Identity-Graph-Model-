@@ -1,0 +1,283 @@
+(Add Formal Mathematical Foundations to Main Research Page)
+
+CONTEXT
+
+The Main Research page explains the intuition, examples, and system behavior, but it currently lacks explicit mathematical formulation.
+
+This weakens:
+
+academic credibility
+
+reviewer confidence
+
+clarity of what is formally claimed vs illustrated
+
+Your task is to embed the formal mathematical model directly into the Main Research page, with:
+
+correct notation
+
+precise definitions
+
+plain-English explanations immediately following each formula
+
+This is not optional and must be visible in the UI (with collapsible “Advanced” sections).
+
+HARD CONSTRAINTS
+
+Do NOT introduce probabilistic models
+
+Do NOT introduce learning, training, or optimization
+
+Do NOT introduce accuracy metrics
+
+Do NOT introduce ML notation
+
+Keep the model deterministic and graph-theoretic
+
+All math must map directly to implemented code concepts.
+
+GOAL
+
+A technically trained reader should be able to:
+
+identify the formal model
+
+map it to the implementation
+
+understand exactly what is claimed and what is not
+
+A non-technical reader should be able to:
+
+collapse the math
+
+read the plain-English explanations
+
+still understand the idea
+
+STRUCTURE TO ADD TO MAIN RESEARCH PAGE
+
+Add a new section titled:
+
+Formal Model and Mathematical Foundations
+
+
+This section must be collapsed by default but clearly visible.
+
+SECTION 1 — IDENTITY GRAPH DEFINITION
+Mathematical Definition (display as LaTeX-style math)
+G = (V, E, τ)
+
+
+Where:
+
+𝑉
+=
+𝑉
+𝐼
+∪
+𝑉
+𝑅
+V=V
+I
+	​
+
+∪V
+R
+	​
+
+
+is the set of vertices representing identities and resources
+
+𝐸
+⊆
+𝑉
+×
+𝑉
+×
+Λ
+E⊆V×V×Λ
+is the set of directed, labeled edges
+
+Λ
+Λ
+is the finite set of relationship labels
+
+𝜏
+:
+(
+𝑉
+∪
+𝐸
+)
+→
+𝑇
+×
+𝑇
+τ:(V∪E)→T×T
+assigns temporal validity intervals
+
+Plain-English Explanation (must appear immediately below)
+
+The system models identity as a graph.
+Nodes represent identities or resources.
+Edges represent observed relationships.
+Time determines when a node or relationship is considered active.
+
+SECTION 2 — TEMPORAL SEMANTICS
+Temporal Projection
+
+Display:
+
+G(T) = (V_T, E_T)
+
+
+Where:
+
+V_T = { v ∈ V | τ(v).first_seen ≤ T ≤ τ(v).last_seen }
+E_T = { e ∈ E | τ(e).first_seen ≤ T ≤ τ(e).last_seen }
+
+Plain-English Explanation
+
+This defines the identity graph at a specific moment in time.
+Only identities and relationships active at time T are included.
+This enables point-in-time reconstruction and forensic reasoning.
+
+SECTION 3 — EVENT-SOURCED GRAPH UPDATE
+Update Function
+
+Display:
+
+U(G, e_t) → G′
+
+
+Where:
+
+𝑒
+𝑡
+e
+t
+	​
+
+ is a normalized identity event observed at time 
+𝑡
+t
+
+𝑈
+U is deterministic and idempotent
+
+Algorithm (formatted as pseudocode):
+
+If v ∉ V:
+  create v with τ.first_seen = t
+
+τ(v).last_seen = max(τ(v).last_seen, t)
+
+For each relationship r in e_t:
+  If (v, r.target, r.label) ∉ E:
+    create edge with τ.first_seen = t
+  τ(edge).last_seen = max(τ(edge).last_seen, t)
+
+Plain-English Explanation
+
+Identity state is built by replaying events, not by mutating a database.
+Replaying the same events always produces the same graph.
+
+SECTION 4 — REACHABILITY (PATH-BASED ACCESS)
+Definition
+
+Display:
+
+∃ p = (v₀, v₁, …, vₖ) such that:
+v₀ = i,
+vₖ = r,
+∀ j, (vⱼ, vⱼ₊₁) ∈ E_T
+
+Explanation
+
+An identity can reach a resource if a continuous chain of relationships exists at time T.
+This captures indirect and transitive access.
+
+SECTION 5 — BLAST RADIUS
+Definition
+
+Display:
+
+BR(i, k, T) = { v ∈ V_T | dist(i, v) ≤ k }
+
+
+Where:
+
+𝑑
+𝑖
+𝑠
+𝑡
+dist is the shortest path length in 
+𝐺
+(
+𝑇
+)
+G(T)
+
+Explanation
+
+Blast radius is the set of identities and resources reachable from a compromised identity within k steps.
+This is computed structurally, not heuristically.
+
+SECTION 6 — NON-HUMAN & OT IDENTITY MODELING
+Formal Note
+
+Display:
+
+v ∈ V_I may be inferred from behavior,
+not explicit authentication.
+
+Explanation
+
+OT and non-human identities are inferred from observed interactions,
+enabling reasoning across IT, cloud, and OT domains.
+
+SECTION 7 — NON-CLAIMS (FORMAL BOUNDARY)
+
+Display prominently:
+
+This model does not define:
+• attack detection
+• likelihood estimation
+• probabilistic inference
+• enforcement decisions
+
+UI REQUIREMENTS
+
+Each math block must have a toggle: “Show formal definition”
+
+Tooltips must explain symbols on hover
+
+Link each section to code references (graph_engine, analysis)
+
+VALIDATION CHECK
+
+Confirm that:
+
+every formula corresponds to implemented logic
+
+no unused notation exists
+
+math does not imply learning or prediction
+
+plain-English explanations are accurate
+
+FINAL OUTPUT REQUIRED
+
+When finished, return:
+
+which UI components were updated
+
+screenshots or placeholders showing math blocks
+
+confirmation that math aligns with implementation
+
+Then STOP.
+
+FINAL RULE
+
+If a formula cannot be traced to code, it must not appear.

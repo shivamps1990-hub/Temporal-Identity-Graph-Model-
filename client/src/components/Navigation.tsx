@@ -1,12 +1,13 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Network, Shield, BookOpen } from "lucide-react";
+import { Home, LayoutDashboard, Network, Shield, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/", label: "Home", icon: Home },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/analysis", label: "Analysis", icon: Network },
   { href: "/threats", label: "Threat Map", icon: Shield },
-  { href: "/about", label: "About", icon: BookOpen },
+  { href: "/about", label: "About Author", icon: User },
 ];
 
 export function Navigation() {
