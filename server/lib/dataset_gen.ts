@@ -5,7 +5,7 @@ class PseudoRandom {
   constructor(seed: number) {
     this.seed = seed;
   }
-  
+
   next(): number {
     const x = Math.sin(this.seed++) * 10000;
     return x - Math.floor(x);
@@ -14,7 +14,7 @@ class PseudoRandom {
   range(min: number, max: number): number {
     return Math.floor(this.next() * (max - min + 1) + min);
   }
-  
+
   pick<T>(array: T[]): T {
     return array[this.range(0, array.length - 1)];
   }
@@ -129,7 +129,6 @@ function generateOtFullAttackChain(rng: PseudoRandom): NormalizedEvent[] {
   }
 
   events.push(makeEvent("evt_chain_09", ts(20 * HOUR), "ci-deploy-token", "SERVICE_ACCOUNT", "aws", "AUTHENTICATES_WITH", "ci-deploy-token", "IDENTITY", 0, "DECOMMISSIONED"));
-
   events.push(makeEvent("evt_chain_10", ts(6 * HOUR), "ci-deploy-token", "SERVICE_ACCOUNT", "aws", "ASSUMES", "cloud-admin-role", "IDENTITY", 90));
   events.push(makeEvent("evt_chain_11", ts(4 * HOUR), "cloud-admin-role", "SERVICE_ACCOUNT", "aws", "ACCESSES", "secrets-manager", "RESOURCE", 90));
 
@@ -234,24 +233,144 @@ function generateBaseline(rng: PseudoRandom): NormalizedEvent[] {
   return events.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 }
 
+function generateShadowOtBridge(rng: PseudoRandom): NormalizedEvent[] {
+  const events: NormalizedEvent[] = [];
+  let idx = 0;
+
+  for (let i = 0; i < 30; i++) {
+    const offset = rng.range(1 * HOUR, 48 * HOUR);
+    events.push(makeEvent(
+      `evt_shadow_bg_${idx++}`, ts(offset),
+      rng.pick(["alice", "bob", "charlie"]), "HUMAN", "enterprise",
+      "AUTHENTICATES_WITH", "okta-sso", "RESOURCE"
+    ));
+  }
+
+  events.push(makeEvent("evt_shadow_01", ts(40 * HOUR), "cloud-workload-x", "WORKLOAD", "aws", "ACCESSES", "ot-gateway-legacy", "WORKLOAD", 50));
+  events.push(makeEvent("evt_shadow_02", ts(38 * HOUR), "ot-gateway-legacy", "WORKLOAD", "ot", "COMMUNICATES_WITH", "plc-pump-01", "PLC", 80));
+  events.push(makeEvent("evt_shadow_03", ts(36 * HOUR), "ot-gateway-legacy", "WORKLOAD", "ot", "ACCESSES", "hmi-ops-console", "HMI", 75));
+
+  for (let i = 0; i < 15; i++) {
+    const offset = rng.range(1 * HOUR, 48 * HOUR);
+    events.push(makeEvent(
+      `evt_shadow_bg_${idx++}`, ts(offset),
+      rng.pick(["service-a", "service-b"]), "WORKLOAD", "aws",
+      "ACCESSES", rng.pick(["db-main", "cache-01", "queue-svc"]), "RESOURCE"
+    ));
+  }
+
+  return events.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+}
+
+function generateCicdTokenSprawl(rng: PseudoRandom): NormalizedEvent[] {
+  const events: NormalizedEvent[] = [];
+  let idx = 0;
+
+  for (let i = 0; i < 25; i++) {
+    const offset = rng.range(1 * HOUR, 48 * HOUR);
+    events.push(makeEvent(
+      `evt_tsprawl_bg_${idx++}`, ts(offset),
+      rng.pick(["dev-alice", "dev-bob", "dev-charlie"]), "HUMAN", "enterprise",
+      "AUTHENTICATES_WITH", "github-sso", "RESOURCE"
+    ));
+  }
+
+  const tokens = ["ci-token-build", "ci-token-test", "ci-token-deploy", "ci-token-scan", "ci-token-release"];
+  for (const token of tokens) {
+    const offset = rng.range(20 * HOUR, 44 * HOUR);
+    events.push(makeEvent(
+      `evt_tsprawl_${idx++}`, ts(offset),
+      "github-actions-runner", "WORKLOAD", "ci_cd",
+      "ASSUMES", token, "IDENTITY", 30
+    ));
+  }
+
+  events.push(makeEvent(`evt_tsprawl_reuse_01`, ts(12 * HOUR), "ci-token-deploy", "SERVICE_ACCOUNT", "ci_cd", "ASSUMES", "cloud-prod-role", "IDENTITY", 70));
+  events.push(makeEvent(`evt_tsprawl_reuse_02`, ts(10 * HOUR), "cloud-prod-role", "SERVICE_ACCOUNT", "aws", "ACCESSES", "secrets-manager", "RESOURCE", 75));
+  events.push(makeEvent(`evt_tsprawl_reuse_03`, ts(8 * HOUR), "secrets-manager", "WORKLOAD", "aws", "CONTROLS", "k8s-prod-cluster", "RESOURCE", 80));
+  events.push(makeEvent(`evt_tsprawl_reuse_04`, ts(6 * HOUR), "k8s-prod-cluster", "WORKLOAD", "k8s", "ACCESSES", "ot-data-lake", "WORKLOAD", 85));
+  events.push(makeEvent(`evt_tsprawl_reuse_05`, ts(4 * HOUR), "ot-data-lake", "WORKLOAD", "ot", "CONTROLS", "plc-sensor-array", "PLC", 95));
+
+  return events.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+}
+
+function generateVendorRemoteAccess(rng: PseudoRandom): NormalizedEvent[] {
+  const events: NormalizedEvent[] = [];
+  let idx = 0;
+
+  for (let i = 0; i < 20; i++) {
+    const offset = rng.range(1 * HOUR, 72 * HOUR);
+    events.push(makeEvent(
+      `evt_vendor_bg_${idx++}`, ts(offset),
+      rng.pick(["plant-operator-a", "plant-operator-b"]), "HUMAN", "enterprise",
+      "AUTHENTICATES_WITH", "local-ad", "RESOURCE"
+    ));
+  }
+
+  events.push(makeEvent("evt_vendor_01", ts(60 * HOUR), "vendor-sa-siemens", "SERVICE_ACCOUNT", "enterprise", "AUTHENTICATES_WITH", "vpn-gateway", "RESOURCE", 40));
+  events.push(makeEvent("evt_vendor_02", ts(58 * HOUR), "vpn-gateway", "WORKLOAD", "enterprise", "COMMUNICATES_WITH", "ot-jump-host", "WORKLOAD", 55));
+  events.push(makeEvent("evt_vendor_03", ts(56 * HOUR), "ot-jump-host", "WORKLOAD", "ot", "ACCESSES", "scada-engineering-ws", "WORKLOAD", 70));
+  events.push(makeEvent("evt_vendor_04", ts(54 * HOUR), "scada-engineering-ws", "WORKLOAD", "ot", "CONTROLS", "plc-conveyor-01", "PLC", 90));
+  events.push(makeEvent("evt_vendor_05", ts(52 * HOUR), "scada-engineering-ws", "WORKLOAD", "ot", "CONTROLS", "hmi-conveyor-panel", "HMI", 85));
+
+  events.push(makeEvent("evt_vendor_06", ts(6 * HOUR), "vendor-sa-siemens", "SERVICE_ACCOUNT", "enterprise", "AUTHENTICATES_WITH", "vpn-gateway", "RESOURCE", 60));
+  events.push(makeEvent("evt_vendor_07", ts(4 * HOUR), "vpn-gateway", "WORKLOAD", "enterprise", "COMMUNICATES_WITH", "ot-jump-host", "WORKLOAD", 70));
+
+  return events.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+}
+
+function generateDelayedBlastRadius(rng: PseudoRandom): NormalizedEvent[] {
+  const events: NormalizedEvent[] = [];
+  let idx = 0;
+
+  for (let i = 0; i < 30; i++) {
+    const offset = rng.range(1 * HOUR, 72 * HOUR);
+    events.push(makeEvent(
+      `evt_delayed_bg_${idx++}`, ts(offset),
+      rng.pick(["alice", "bob", "charlie"]), "HUMAN", "enterprise",
+      "AUTHENTICATES_WITH", "okta-sso", "RESOURCE"
+    ));
+  }
+
+  events.push(makeEvent("evt_delayed_01", ts(48 * HOUR), "compromised-dev", "HUMAN", "enterprise", "AUTHENTICATES_WITH", "gitlab-ci", "WORKLOAD", 20));
+  events.push(makeEvent("evt_delayed_02", ts(46 * HOUR), "gitlab-ci", "WORKLOAD", "ci_cd", "ASSUMES", "deploy-token-stg", "IDENTITY", 35));
+
+  events.push(makeEvent("evt_delayed_03", ts(24 * HOUR), "deploy-token-stg", "SERVICE_ACCOUNT", "aws", "ASSUMES", "staging-role", "IDENTITY", 50));
+  events.push(makeEvent("evt_delayed_04", ts(22 * HOUR), "staging-role", "SERVICE_ACCOUNT", "aws", "ACCESSES", "staging-secrets", "RESOURCE", 55));
+
+  events.push(makeEvent("evt_delayed_05", ts(8 * HOUR), "staging-secrets", "WORKLOAD", "aws", "CONTROLS", "prod-k8s-sa", "WORKLOAD", 75));
+  events.push(makeEvent("evt_delayed_06", ts(6 * HOUR), "prod-k8s-sa", "WORKLOAD", "k8s", "ACCESSES", "ot-historian", "WORKLOAD", 85));
+  events.push(makeEvent("evt_delayed_07", ts(4 * HOUR), "ot-historian", "WORKLOAD", "ot", "CONTROLS", "plc-reactor-01", "PLC", 100));
+
+  return events.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+}
+
 export const AVAILABLE_SCENARIOS = [
-  { name: "cicd_compromise", label: "CI/CD Compromise", description: "Human -> Jenkins -> Cloud Role -> K8s -> OT Gateway -> PLC" },
-  { name: "ot_full_attack_chain", label: "OT Full Attack Chain", description: "Developer -> GitLab CI -> Token -> Cloud Role -> Secrets -> K8s -> OT Gateway -> SCADA -> PLC" },
-  { name: "cloud_ot_bridge", label: "Cloud-OT Bridge", description: "Terraform SA -> VPC Peering -> OT DMZ -> Historian -> HMI -> PLC" },
-  { name: "role_sprawl", label: "Role Sprawl", description: "Single SA assuming 8+ roles accessing multiple resources" },
-  { name: "dormant_wakeup", label: "Dormant Wakeup", description: "Legacy SA dormant for days, suddenly reactivated for exfiltration" },
-  { name: "baseline", label: "Baseline (Noise)", description: "Normal user activity with no attack chain" },
+  { name: "cicd_compromise", label: "CI/CD Compromise", description: "Human -> Jenkins -> Cloud Role -> K8s -> OT Gateway -> PLC", intent: "Demonstrate CI/CD pipeline exploitation reaching OT", expected_threats: ["IT_TO_OT_PATH"] },
+  { name: "ot_full_attack_chain", label: "OT Full Attack Chain", description: "Developer -> GitLab CI -> Token -> Cloud -> Secrets -> K8s -> OT -> SCADA -> PLC", intent: "Full multi-hop attack chain with dormant token reuse", expected_threats: ["IT_TO_OT_PATH", "DORMANT_REACTIVATION"] },
+  { name: "cloud_ot_bridge", label: "Cloud-OT Bridge", description: "Terraform SA -> VPC Peering -> OT DMZ -> Historian -> HMI -> PLC", intent: "Cloud infrastructure bridging into OT through network peering", expected_threats: ["IT_TO_OT_PATH", "ORPHAN_NHI"] },
+  { name: "role_sprawl", label: "Role Sprawl", description: "Single SA assuming 8+ roles accessing multiple resources", intent: "Demonstrate excessive transitive delegation", expected_threats: ["EXCESSIVE_DELEGATION"] },
+  { name: "dormant_wakeup", label: "Dormant Wakeup", description: "Legacy SA dormant for days, suddenly reactivated for exfiltration", intent: "Show dormant identity reactivation risk", expected_threats: ["DORMANT_REACTIVATION"] },
+  { name: "shadow_ot_bridge", label: "Shadow OT Bridge", description: "Cloud workload with forgotten OT gateway access, no human owner", intent: "Surface orphan NHI with OT access", expected_threats: ["ORPHAN_NHI", "IT_TO_OT_PATH"] },
+  { name: "cicd_token_sprawl", label: "CI/CD Token Sprawl", description: "Many CI tokens, one reused incorrectly through to OT", intent: "Token reuse creating excessive delegation chain to OT", expected_threats: ["EXCESSIVE_DELEGATION", "IT_TO_OT_PATH"] },
+  { name: "vendor_remote_access", label: "Vendor Remote Access", description: "External vendor SA with long-lived OT access via VPN", intent: "Show weak vendor ownership trail into OT", expected_threats: ["ORPHAN_NHI", "IT_TO_OT_PATH"] },
+  { name: "delayed_blast_radius", label: "Delayed Blast Radius", description: "Early compromise, reachability emerges hours later", intent: "Demonstrate delayed risk emergence over time", expected_threats: ["IT_TO_OT_PATH"] },
+  { name: "baseline", label: "Baseline (Noise)", description: "Normal user activity with no attack chain", intent: "Control scenario with no expected threats", expected_threats: [] },
 ];
 
 export function generateScenario(name: string, seed: number = 42): NormalizedEvent[] {
   const rng = new PseudoRandom(seed);
-  
+
   switch (name) {
     case "cicd_compromise": return generateCicdCompromise(rng);
     case "ot_full_attack_chain": return generateOtFullAttackChain(rng);
     case "cloud_ot_bridge": return generateCloudOtBridge(rng);
     case "role_sprawl": return generateRoleSprawl(rng);
     case "dormant_wakeup": return generateDormantWakeup(rng);
+    case "shadow_ot_bridge": return generateShadowOtBridge(rng);
+    case "cicd_token_sprawl": return generateCicdTokenSprawl(rng);
+    case "vendor_remote_access": return generateVendorRemoteAccess(rng);
+    case "delayed_blast_radius": return generateDelayedBlastRadius(rng);
     case "baseline": return generateBaseline(rng);
     default: return generateBaseline(rng);
   }

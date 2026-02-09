@@ -3,7 +3,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Activity, ShieldAlert, Cpu, User, Clock } from "lucide-react";
+import { ShieldAlert, Clock } from "lucide-react";
 import { format } from "date-fns";
 
 interface NodeDetailsProps {
@@ -17,39 +17,37 @@ export function NodeDetails({ node, open, onOpenChange }: NodeDetailsProps) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[400px] border-l border-border bg-card/95 backdrop-blur-sm p-0 flex flex-col">
+      <SheetContent className="w-[400px] border-l border-border bg-card p-0 flex flex-col">
         <div className="p-6 border-b border-border">
           <SheetHeader className="mb-4">
             <div className="flex items-center gap-2 mb-2">
-              <Badge variant="outline" className="font-mono text-xs bg-primary/10 text-primary border-primary/20">
+              <Badge variant="outline" className="font-mono text-xs">
                 {node.type}
               </Badge>
               <Badge variant="secondary" className="font-mono text-xs">
                 {node.platform}
               </Badge>
             </div>
-            <SheetTitle className="font-mono text-xl break-all">{node.id}</SheetTitle>
+            <SheetTitle className="font-mono text-lg break-all">{node.id}</SheetTitle>
             <SheetDescription className="flex items-center gap-2 text-xs font-mono">
-              <span className={`w-2 h-2 rounded-full ${node.lifecycle_state === 'ACTIVE' ? 'bg-green-500' : 'bg-gray-500'}`} />
+              <span className={`w-2 h-2 rounded-full ${node.lifecycle_state === 'ACTIVE' ? 'bg-green-500' : 'bg-gray-400'}`} />
               {node.lifecycle_state}
             </SheetDescription>
           </SheetHeader>
 
           <div className="grid grid-cols-2 gap-4 mt-6">
-            <div className="p-3 rounded-md bg-muted/50 border border-border/50">
+            <div className="p-3 rounded-md bg-muted/50 border border-border">
               <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
                 <ShieldAlert className="w-3 h-3" /> Risk Score
               </div>
-              <div className="text-2xl font-bold font-mono text-foreground">
+              <div className="text-2xl font-semibold font-mono">
                 {node.risk_score.toFixed(1)}
               </div>
             </div>
-            <div className="p-3 rounded-md bg-muted/50 border border-border/50">
-              <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                <Activity className="w-3 h-3" /> Connectivity
-              </div>
-              <div className="text-2xl font-bold font-mono text-foreground">
-                High
+            <div className="p-3 rounded-md bg-muted/50 border border-border">
+              <div className="text-xs text-muted-foreground mb-1">Events</div>
+              <div className="text-2xl font-semibold font-mono">
+                {node.provenance.length}
               </div>
             </div>
           </div>
@@ -62,14 +60,14 @@ export function NodeDetails({ node, open, onOpenChange }: NodeDetailsProps) {
                 <Clock className="w-4 h-4 text-muted-foreground" />
                 Temporal Metadata
               </h4>
-              <div className="space-y-2 text-sm font-mono text-muted-foreground">
+              <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span>First Seen</span>
-                  <span className="text-foreground">{format(new Date(node.first_seen), "MMM d, HH:mm:ss")}</span>
+                  <span className="text-muted-foreground">First Seen</span>
+                  <span className="font-mono text-xs">{format(new Date(node.first_seen), "MMM d, HH:mm:ss")}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Last Seen</span>
-                  <span className="text-foreground">{format(new Date(node.last_seen), "MMM d, HH:mm:ss")}</span>
+                  <span className="text-muted-foreground">Last Seen</span>
+                  <span className="font-mono text-xs">{format(new Date(node.last_seen), "MMM d, HH:mm:ss")}</span>
                 </div>
               </div>
             </div>
@@ -78,10 +76,10 @@ export function NodeDetails({ node, open, onOpenChange }: NodeDetailsProps) {
 
             <div>
               <h4 className="text-sm font-semibold mb-3">Provenance</h4>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {node.provenance.slice(0, 5).map((eventId) => (
-                  <div key={eventId} className="text-xs font-mono bg-muted/30 p-2 rounded border border-border/50 truncate">
-                    Event: {eventId}
+                  <div key={eventId} className="text-xs font-mono bg-muted/40 p-1.5 rounded border border-border truncate">
+                    {eventId}
                   </div>
                 ))}
                 {node.provenance.length > 5 && (

@@ -106,13 +106,18 @@ export function ReplayControls({ onTimestampChange, onReset, events }: ReplayCon
   const currentTs = currentIndex < totalSteps ? sorted[currentIndex]?.timestamp : endTs;
 
   return (
-    <div className="w-full bg-card border-t border-border p-4" data-testid="replay-controls">
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between font-mono text-xs text-muted-foreground">
-          <span>{startTs ? format(new Date(startTs), "yyyy-MM-dd HH:mm") : "--"}</span>
-          <span className="text-primary font-bold">
+    <div className="w-full p-4" data-testid="replay-controls">
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <p className="text-[10px] text-muted-foreground">
+            Move through time to observe how identity relationships appear, evolve, and disappear.
+          </p>
+          <span className="font-mono text-xs text-primary font-medium">
             {currentIndex >= totalSteps ? "LIVE" : `Event ${currentIndex + 1} / ${totalSteps}`}
           </span>
+        </div>
+        <div className="flex items-center justify-between font-mono text-[10px] text-muted-foreground">
+          <span>{startTs ? format(new Date(startTs), "yyyy-MM-dd HH:mm") : "--"}</span>
           <span>{endTs ? format(new Date(endTs), "yyyy-MM-dd HH:mm") : "--"}</span>
         </div>
         
@@ -137,7 +142,6 @@ export function ReplayControls({ onTimestampChange, onReset, events }: ReplayCon
           </Button>
           <Button 
             size="icon" 
-            className="w-12 h-12 rounded-full shadow-lg shadow-primary/20 transition-all"
             onClick={togglePlay}
             data-testid="button-play-pause"
           >

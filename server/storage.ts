@@ -1,5 +1,6 @@
 import { GraphEngine } from "./graph_engine";
 import { NormalizedEvent, GraphSnapshot } from "@shared/schema";
+import { deriveThreats, ThreatMapResult } from "./lib/threat_engine";
 
 export interface IStorage {
   injectEvent(event: NormalizedEvent): Promise<any>;
@@ -9,6 +10,7 @@ export interface IStorage {
   findReachability(source: string, target: string, k: number): Promise<any>;
   analyzeThreats(): Promise<any>;
   calculateBlastRadius(source: string, k: number): Promise<any>;
+  deriveThreatMap(timestamp?: string): Promise<ThreatMapResult>;
 }
 
 export class MemStorage implements IStorage {
@@ -54,6 +56,11 @@ export class MemStorage implements IStorage {
     return {
       reachable_nodes: this.engine.calculateBlastRadius(source, k)
     };
+  }
+
+  async deriveThreatMap(timestamp?: string): Promise<ThreatMapResult> {
+    const snapshot = this.engine.getSnapshot(timestamp);
+    return deriveThreats(snapshot.nodes, snapshot.edges, timestamp || null);
   }
 }
 

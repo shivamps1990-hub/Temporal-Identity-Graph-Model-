@@ -1,7 +1,6 @@
 import { useEffect, useRef, useMemo, useState } from "react";
 import ForceGraph2D, { type ForceGraphMethods } from "react-force-graph-2d";
 import { type GraphNode, type GraphEdge } from "@shared/schema";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Maximize2, Loader2 } from "lucide-react";
 
@@ -14,19 +13,12 @@ interface GraphCanvasProps {
 
 const NODE_COLORS: Record<string, string> = {
   HUMAN: "#3B82F6",
-  WORKLOAD: "#10B981",
-  SERVICE_ACCOUNT: "#8B5CF6",
-  PLC: "#EF4444",
-  HMI: "#F97316",
+  WORKLOAD: "#059669",
+  SERVICE_ACCOUNT: "#7C3AED",
+  PLC: "#DC2626",
+  HMI: "#EA580C",
   RESOURCE: "#6B7280",
-};
-
-const PLATFORM_SHAPES: Record<string, string> = {
-  ot: "diamond",
-  k8s: "square",
-  ci_cd: "triangle",
-  aws: "circle",
-  enterprise: "circle",
+  IDENTITY: "#6B7280",
 };
 
 const NODE_VAL: Record<string, number> = {
@@ -40,7 +32,7 @@ const NODE_VAL: Record<string, number> = {
 export function GraphCanvas({ nodes, edges, onNodeClick, isLoading }: GraphCanvasProps) {
   const graphRef = useRef<ForceGraphMethods>();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+  const [dimensions, setDimensions] = useState({ width: 800, height: 500 });
 
   const graphData = useMemo(() => {
     return {
@@ -64,7 +56,7 @@ export function GraphCanvas({ nodes, edges, onNodeClick, isLoading }: GraphCanva
   }, []);
 
   const nodeCanvasObject = (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-    const color = NODE_COLORS[node.type] || "#888";
+    const color = NODE_COLORS[node.type] || "#9CA3AF";
     const size = (NODE_VAL[node.type] || 3) * 1.5;
     const x = node.x || 0;
     const y = node.y || 0;
@@ -86,21 +78,21 @@ export function GraphCanvas({ nodes, edges, onNodeClick, isLoading }: GraphCanva
     ctx.fill();
 
     if (node.risk_score >= 70) {
-      ctx.strokeStyle = "#EF4444";
+      ctx.strokeStyle = "#DC2626";
       ctx.lineWidth = 2;
       ctx.stroke();
     } else {
-      ctx.strokeStyle = color + "66";
+      ctx.strokeStyle = color + "44";
       ctx.lineWidth = 1;
       ctx.stroke();
     }
 
     const label = node.id;
     const fontSize = Math.max(10 / globalScale, 3);
-    ctx.font = `${fontSize}px monospace`;
+    ctx.font = `${fontSize}px 'IBM Plex Mono', monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillStyle = '#94a3b8';
+    ctx.fillStyle = '#64748B';
     ctx.fillText(label, x, y + size + 2);
   };
 
@@ -112,78 +104,60 @@ export function GraphCanvas({ nodes, edges, onNodeClick, isLoading }: GraphCanva
     ctx.beginPath();
     ctx.moveTo(start.x, start.y);
     ctx.lineTo(end.x, end.y);
-    ctx.strokeStyle = '#334155';
-    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = '#CBD5E1';
+    ctx.lineWidth = 1;
     ctx.stroke();
 
-    const midX = (start.x + end.x) / 2;
-    const midY = (start.y + end.y) / 2;
-
     const angle = Math.atan2(end.y - start.y, end.x - start.x);
-    const arrowLen = 6;
+    const arrowLen = 5;
     ctx.beginPath();
     ctx.moveTo(end.x, end.y);
     ctx.lineTo(end.x - arrowLen * Math.cos(angle - Math.PI / 6), end.y - arrowLen * Math.sin(angle - Math.PI / 6));
     ctx.lineTo(end.x - arrowLen * Math.cos(angle + Math.PI / 6), end.y - arrowLen * Math.sin(angle + Math.PI / 6));
     ctx.closePath();
-    ctx.fillStyle = '#475569';
+    ctx.fillStyle = '#94A3B8';
     ctx.fill();
 
     if (globalScale > 1.2) {
-      const labelSize = Math.max(8 / globalScale, 2.5);
-      ctx.font = `${labelSize}px monospace`;
+      const midX = (start.x + end.x) / 2;
+      const midY = (start.y + end.y) / 2;
+      const labelSize = Math.max(7 / globalScale, 2.5);
+      ctx.font = `${labelSize}px 'IBM Plex Mono', monospace`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#64748b';
+      ctx.fillStyle = '#94A3B8';
       ctx.fillText(link.label || '', midX, midY - 4);
     }
   };
 
   return (
-    <div className="relative w-full h-full bg-grid-pattern rounded-lg overflow-hidden border border-border bg-card/50" ref={containerRef} data-testid="graph-canvas">
+    <div className="relative w-full h-full bg-grid-pattern" ref={containerRef} data-testid="graph-canvas">
       {isLoading && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-2">
-            <Loader2 className="w-8 h-8 text-primary animate-spin" />
-            <span className="font-mono text-sm text-muted-foreground">Processing Graph...</span>
+            <Loader2 className="w-6 h-6 text-primary animate-spin" />
+            <span className="text-sm text-muted-foreground">Processing graph...</span>
           </div>
         </div>
       )}
 
-      <div className="absolute top-4 left-4 z-10 pointer-events-none">
-        <Card className="p-3 bg-background/80 backdrop-blur border-border/50 shadow-xl">
-          <div className="flex flex-col gap-1">
-            <div className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Graph State</div>
-            <div className="flex gap-4">
-              <div className="flex flex-col">
-                <span className="text-xl font-bold font-mono text-foreground" data-testid="text-node-count">{nodes.length}</span>
-                <span className="text-[10px] text-muted-foreground">NODES</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xl font-bold font-mono text-foreground" data-testid="text-edge-count">{edges.length}</span>
-                <span className="text-[10px] text-muted-foreground">EDGES</span>
-              </div>
-            </div>
-          </div>
-        </Card>
-      </div>
-      
-      <div className="absolute bottom-4 left-4 z-10 pointer-events-none">
-        <div className="flex flex-col gap-1 p-2 rounded bg-background/80 backdrop-blur border border-border/50">
-          {Object.entries(NODE_COLORS).map(([type, color]) => (
+      <div className="absolute top-3 left-3 z-10 pointer-events-none">
+        <div className="flex flex-col gap-1 p-2.5 rounded-md bg-card/90 backdrop-blur border border-border shadow-sm">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1">Legend</div>
+          {Object.entries(NODE_COLORS).filter(([type]) => type !== 'IDENTITY').map(([type, color]) => (
             <div key={type} className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-              <span className="text-[10px] font-mono text-muted-foreground">{type}</span>
+              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
+              <span className="text-[10px] text-muted-foreground">{type}</span>
             </div>
           ))}
-          <div className="mt-1 pt-1 border-t border-border/50">
+          <div className="mt-1 pt-1 border-t border-border">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rotate-45 bg-muted-foreground" />
-              <span className="text-[10px] font-mono text-muted-foreground">OT Platform</span>
+              <div className="w-2.5 h-2.5 rotate-45 bg-muted-foreground/60" />
+              <span className="text-[10px] text-muted-foreground">OT Platform</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-muted-foreground" />
-              <span className="text-[10px] font-mono text-muted-foreground">K8s Platform</span>
+              <div className="w-2.5 h-2.5 bg-muted-foreground/60" />
+              <span className="text-[10px] text-muted-foreground">K8s Platform</span>
             </div>
           </div>
         </div>
@@ -194,7 +168,7 @@ export function GraphCanvas({ nodes, edges, onNodeClick, isLoading }: GraphCanva
         width={dimensions.width}
         height={dimensions.height}
         graphData={graphData}
-        backgroundColor="#020817"
+        backgroundColor="transparent"
         nodeCanvasObject={nodeCanvasObject}
         linkCanvasObject={linkCanvasObject}
         nodeLabel={(node: any) => `${node.id} [${node.type}] risk:${node.risk_score}`}
@@ -203,13 +177,13 @@ export function GraphCanvas({ nodes, edges, onNodeClick, isLoading }: GraphCanva
         cooldownTicks={100}
         d3VelocityDecay={0.4}
       />
-      
-      <div className="absolute top-4 right-4 z-10 flex gap-2">
-        <Button 
-          variant="secondary" 
-          size="icon" 
+
+      <div className="absolute top-3 right-3 z-10">
+        <Button
+          variant="outline"
+          size="icon"
           onClick={() => graphRef.current?.zoomToFit(400)}
-          className="bg-background/80 backdrop-blur"
+          className="bg-card/90 backdrop-blur shadow-sm"
           data-testid="button-zoom-fit"
         >
           <Maximize2 className="w-4 h-4" />

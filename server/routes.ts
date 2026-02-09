@@ -10,7 +10,7 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  
+
   app.post(api.events.inject.path, async (req, res) => {
     try {
       const event = api.events.inject.input.parse(req.body);
@@ -32,7 +32,7 @@ export async function registerRoutes(
   app.post(api.events.replay.path, async (req, res) => {
     try {
       const { events, reset, scenario } = req.body;
-      
+
       if (reset) {
         await storage.resetGraph();
       }
@@ -86,13 +86,19 @@ export async function registerRoutes(
     res.json(events);
   });
 
+  app.get('/api/analysis/threat-map', async (req, res) => {
+    const timestamp = req.query.timestamp as string | undefined;
+    const result = await storage.deriveThreatMap(timestamp);
+    res.json(result);
+  });
+
   app.get(api.analysis.reachability.path, async (req, res) => {
     const { source, target, k } = req.query;
     if (!source || !target) return res.status(400).json({ message: "Missing source or target" });
-    
+
     const result = await storage.findReachability(
-      String(source), 
-      String(target), 
+      String(source),
+      String(target),
       Number(k) || 5
     );
     res.json(result);

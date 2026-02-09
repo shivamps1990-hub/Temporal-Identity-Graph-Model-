@@ -1,0 +1,241 @@
+GOAL
+
+At any selected time T, a user must be able to:
+
+See the current identity graph
+
+Select an identity and visually see:
+
+all reachable identities (blast radius)
+
+exact paths (step-by-step)
+
+Understand why the path exists (temporal overlap + evidence)
+
+Watch paths appear and disappear during replay
+
+If a user cannot explain the risk in one sentence after using the UI, this task is not complete.
+
+STEP 1 — REQUIRE ANALYSIS INPUTS (DO NOT SKIP)
+
+Ensure the frontend consumes these backend APIs (existing or to be completed):
+
+GET /graph/snapshot?timestamp=T
+
+GET /analysis/reachability?source=A&target=B&k=K&timestamp=T
+
+GET /analysis/blast-radius?source=A&k=K&timestamp=T
+
+Each response must include:
+
+ordered node list
+
+edge labels
+
+timestamps
+
+supporting event_ids
+
+Frontend must treat analysis responses as authoritative.
+
+STEP 2 — GRAPH VIEW: BASE LAYER (MANDATORY)
+
+Update the main graph visualization component.
+
+Base behavior
+
+Render G(T) using /graph/snapshot
+
+Nodes sized by degree
+
+Nodes colored by type:
+
+Human
+
+CI/CD
+
+Cloud
+
+Workload
+
+OT / SCADA / PLC
+
+Edges labeled but subtle by default
+
+Temporal behavior
+
+When time slider moves:
+
+nodes/edges fade in/out based on first_seen / last_seen
+
+no hard redraws; use transitions
+
+Graph state must strictly reflect time T
+
+STEP 3 — PATH ANALYSIS VISUALIZATION (CORE FEATURE)
+
+Add a Path Explorer panel.
+
+UI controls
+
+Source identity (dropdown or click node)
+
+Target identity (dropdown or click node)
+
+Max path length k
+
+Button: Show Paths
+
+On execution
+
+Call:
+
+GET /analysis/reachability
+
+Visualization requirements
+
+When paths exist:
+
+Highlight each path one at a time
+
+Animate traversal from source → target
+
+Color path edges distinctly
+
+Dim non-participating nodes
+
+Path explanation panel (text)
+
+Show:
+
+Path number (e.g. Path 1 of 3)
+
+Node sequence with labels
+
+Temporal overlap explanation:
+
+“This path exists because all relationships were active between T1 and T2.”
+
+Supporting event IDs (expandable)
+
+Failure case
+
+If no path exists:
+
+Explicit message:
+
+“No valid identity path exists at this time.”
+
+STEP 4 — BLAST RADIUS VISUALIZATION (CORE FEATURE)
+
+Add a Blast Radius panel.
+
+UI controls
+
+Select source identity
+
+Set max depth k
+
+Button: Compute Blast Radius
+
+On execution
+
+Call:
+
+GET /analysis/blast-radius
+
+Visualization behavior
+
+Highlight all reachable nodes
+
+Use concentric rings by hop distance
+
+Color intensity increases with hop count
+
+Animate outward expansion from source
+
+Blast radius summary
+
+Display:
+
+Total reachable identities
+
+Max hop depth reached
+
+Breakdown by identity type
+
+Interaction
+
+Clicking a node in blast radius:
+
+shows shortest path from source
+
+highlights that path in graph
+
+STEP 5 — INTEGRATION WITH TEMPORAL REPLAY
+
+The following MUST work:
+
+Start replay
+
+Pause at time T
+
+Run path analysis → path visible
+
+Advance time → path disappears
+
+Blast radius recomputed → smaller or larger
+
+This behavior must visually reinforce:
+
+Paths are time-dependent, not static.
+
+STEP 6 — EVIDENCE & TRUST
+
+Every visual highlight must be backed by:
+
+explicit analysis response
+
+event evidence available on click
+
+Add tooltip:
+
+“This highlight is derived from identity relationships active at this time.”
+
+STEP 7 — VALIDATION CHECKS
+
+Before stopping, verify:
+
+ Graph changes when time changes
+
+ Path appears only when time windows overlap
+
+ Blast radius shrinks/grows with time
+
+ No hardcoded paths or nodes
+
+ Visuals match analysis output exactly
+
+If any of these fail, fix before completion.
+
+FINAL OUTPUT REQUIRED
+
+When finished, return:
+
+files modified
+
+screenshots or placeholders:
+
+base graph
+
+path highlighted
+
+blast radius highlighted
+
+confirmation that visualization is data-driven and temporal
+
+Then STOP.
+
+FINAL RULE
+
+If the graph does not visually answer “how did this identity reach that resource at this time?”, the work is incomplete.

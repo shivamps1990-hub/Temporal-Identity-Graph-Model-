@@ -1,0 +1,265 @@
+(Export Replay Data + Show Theory in Action, Research-Safe)
+
+CONTEXT
+
+This application is a research prototype for temporal, graph-based identity analysis.
+It uses synthetic, deterministic datasets and event replay to demonstrate how identity paths and risks emerge over time.
+
+The UI currently visualizes paths, blast radius, and threats, but users cannot export the underlying experimental data that proves how the theory works in practice.
+
+Your task is to add export capabilities that improve reproducibility, transparency, and research credibility.
+
+⚠️ Important terminology constraint:
+
+This system does not train models.
+
+Do not use the term training data anywhere.
+
+Use “replay dataset”, “synthetic identity events”, or “experimental scenario data” only.
+
+GOAL
+
+Allow users to export the exact data and evidence used in the demo so they can:
+
+independently replay scenarios
+
+inspect identity paths offline
+
+verify deterministic behavior
+
+understand the theory in action
+
+Exports must be:
+
+deterministic
+
+auditable
+
+clearly scoped as research artifacts
+
+HARD CONSTRAINTS
+
+Do NOT export real credentials
+
+Do NOT export UI-only state
+
+Do NOT export threat scores or predictions
+
+Do NOT imply detection accuracy or learning
+
+Do NOT mutate graph state during export
+
+All exports must be read-only views derived from existing data.
+
+STEP 1 — EXPORT REPLAY DATASET (MANDATORY)
+Backend
+
+Add endpoint:
+
+GET /export/replay-dataset
+
+
+Behavior:
+
+Returns the exact NDJSON dataset used for the current replay
+
+Includes all normalized identity events
+
+Preserves event order used during replay
+
+Sets correct content-type for download
+
+Optional query params:
+
+scenario
+
+seed
+
+UI
+
+Add button in Dataset / Replay panel:
+
+Button label
+
+Export Replay Dataset
+
+
+Tooltip (exact text)
+
+Download the synthetic identity events used to construct the graph in this replay.
+
+STEP 2 — EXPORT SCENARIO METADATA (MANDATORY)
+Backend
+
+Add endpoint:
+
+GET /export/scenario-metadata
+
+
+Return JSON containing:
+
+scenario name
+
+seed
+
+event count
+
+time span
+
+intended identity risk patterns
+
+recommended timestamps for analysis
+
+Example structure:
+
+{
+  "scenario": "ot_full_attack_chain",
+  "seed": 42,
+  "event_count": 12450,
+  "time_span": "2026-02-07T09:00Z → 2026-02-08T14:00Z",
+  "intended_patterns": [
+    "IT → OT identity path",
+    "transitive delegation",
+    "dormant reactivation"
+  ],
+  "recommended_timestamps": [
+    "2026-02-08T10:15Z"
+  ]
+}
+
+UI
+
+Add secondary button:
+
+Button label
+
+Export Scenario Metadata
+
+
+Tooltip
+
+Download metadata describing the experimental scenario and intended analysis points.
+
+STEP 3 — EXPORT GRAPH SNAPSHOT AT TIME T (OPTIONAL BUT STRONGLY RECOMMENDED)
+Backend
+
+Add endpoint:
+
+GET /export/graph-snapshot?timestamp=T
+
+
+Behavior:
+
+Serializes G(T) using canonical ordering
+
+Includes:
+
+nodes
+
+edges
+
+first_seen / last_seen
+
+Includes computed graph_hash
+
+UI
+
+Add button near time slider:
+
+Button label
+
+Export Graph Snapshot
+
+
+Tooltip
+
+Download the identity graph state at the selected time for offline analysis.
+
+STEP 4 — EXPORT PATH EVIDENCE (CORE “THEORY IN ACTION” FEATURE)
+Backend
+
+Add endpoint:
+
+POST /export/path-evidence
+
+
+Input:
+
+selected path (node sequence)
+
+timestamp
+
+Output:
+
+node sequence
+
+edge labels
+
+timestamps
+
+supporting event IDs
+
+graph_hash
+
+UI
+
+In Path Analysis panel, add:
+
+Button label
+
+Export Path Evidence
+
+
+Tooltip
+
+Download the identity path and event evidence shown in this visualization.
+
+STEP 5 — UI COPY (MANDATORY WORDING)
+
+Add a small info banner in the export section:
+
+All exported data is synthetic and generated for research and demonstration purposes.
+Exports support reproducibility and independent verification of the analysis.
+
+
+Do NOT mention:
+
+training
+
+learning
+
+accuracy
+
+detection performance
+
+STEP 6 — VALIDATION CHECKS
+
+Before completion, verify:
+
+ Exported dataset replay produces the same graph_hash
+
+ Exported path evidence matches UI visualization exactly
+
+ Exported graph snapshot matches /graph/snapshot
+
+ No exports mutate application state
+
+ Terminology is consistent across UI and API
+
+FINAL OUTPUT REQUIRED
+
+When finished, provide:
+
+list of export endpoints added
+
+UI locations where export buttons appear
+
+example filenames produced
+
+confirmation determinism is preserved
+
+Then STOP and wait for review.
+
+FINAL RULE
+
+If the exported artifact cannot independently reproduce the visual result, it should not be exported.
