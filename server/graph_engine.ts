@@ -79,6 +79,17 @@ export class GraphEngine {
           provenance: [event.event_id]
         });
         nodesAdded++;
+      } else {
+        const targetNode = this.nodes.get(rel.target.id)!;
+        if (new Date(event.timestamp) > new Date(targetNode.last_seen)) {
+          targetNode.last_seen = event.timestamp;
+        }
+        if (new Date(event.timestamp) < new Date(targetNode.first_seen)) {
+          targetNode.first_seen = event.timestamp;
+        }
+        if (!targetNode.provenance.includes(event.event_id)) {
+          targetNode.provenance.push(event.event_id);
+        }
       }
 
       const edgeKey = `${subject.id}|${rel.target.id}|${rel.label}`;
