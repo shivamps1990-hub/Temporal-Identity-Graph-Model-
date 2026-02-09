@@ -1,0 +1,141 @@
+(Add Apache-2.0 License Disclosure to Research Prototype App)
+
+CONTEXT
+
+This application is an open-source research prototype released under the Apache License, Version 2.0.
+
+Currently, the application does not clearly surface:
+
+the license terms
+
+copyright ownership
+
+scope of use
+
+research-only intent
+
+Your task is to add explicit, correct license disclosure inside the application UI and documentation, without implying registration, endorsement, or commercial guarantees.
+
+HARD CONSTRAINTS (LEGAL ACCURACY)
+
+Do NOT say the license is “registered”
+
+Do NOT imply approval by the Apache Software Foundation
+
+Do NOT imply warranty, security guarantees, or production readiness
+
+Do NOT alter the Apache-2.0 license text
+
+Use exact, neutral wording.
+
+GOAL
+
+Ensure that:
+
+Users can clearly see the license under which the prototype is released
+
+The scope and limitations of use are explicit
+
+The app aligns with the LICENSE and NOTICE files in the repository
+
+Reviewers and researchers can quickly verify license compliance
+
+STEP 1 — ADD LICENSE SECTION TO UI (MANDATORY)
+
+Add a new section accessible from:
+
+Footer link: License
+
+Or About → License tab
+
+Section title
+License and Usage
+
+Body copy (use exactly this wording)
+This research prototype is released under the Apache License, Version 2.0.
+
+You may use, modify, and distribute this software in accordance with the terms of the license.
+The software is provided on an "AS IS" basis, without warranties or conditions of any kind.
+
+This application is intended for research, education, and analytical experimentation.
+It is not a production system and does not provide security guarantees.
+
+
+Add link:
+
+View full license text →
+
+
+(link to /LICENSE or external Apache-2.0 text)
+
+STEP 2 — ADD COPYRIGHT NOTICE (MANDATORY)
+
+In the same section, add a clearly separated block:
+
+Copyright © 2026 Shivam
+
+Licensed under the Apache License, Version 2.0.
+
+
+Do not add additional legal language beyond this.
+
+STEP 3 — ADD NOTICE DISCLOSURE (RECOMMENDED)
+
+Add a collapsible subsection:
+
+Title
+
+Notice
+
+
+Body
+
+This product includes software developed for open research purposes.
+All datasets used in this application are synthetic and generated for demonstration and reproducibility.
+
+STEP 4 — FOOTER BADGE (SMALL, NON-INTRUSIVE)
+
+Add a footer line (small text):
+
+Apache-2.0 Licensed · Research Prototype
+
+
+This must appear on all pages.
+
+STEP 5 — API / EXPORT METADATA (CONSISTENCY)
+
+Ensure that:
+
+Any exported datasets include metadata field:
+
+"license": "Apache-2.0"
+
+
+Any exported graph snapshots or path evidence include:
+
+"license": "Apache-2.0"
+
+
+This is informational only and must not enforce restrictions.
+
+STEP 6 — CONSISTENCY CHECK
+
+Before completing, verify:
+
+UI license text matches repository LICENSE
+
+No UI text implies registration, approval, or certification
+
+No UI text implies accuracy, detection, or security effectiveness
+
+License wording appears only in designated sections (not scattered)
+
+FINAL OUTPUT REQUIRED
+
+When finished, return:
+
+UI locations where license information appears
+
+Screenshots or placeholders of License section
+
+Confirmation that wording matches Apache-2.0 requirements

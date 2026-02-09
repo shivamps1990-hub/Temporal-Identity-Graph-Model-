@@ -163,7 +163,7 @@ export async function registerRoutes(
     const filename = `graph_snapshot_${timestamp || 'live'}_${snapshot.version.substring(0, 8)}.json`;
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.json(snapshot);
+    res.json({ ...snapshot, license: "Apache-2.0" });
   });
 
   app.post('/export/path-evidence', async (req, res) => {
@@ -201,9 +201,237 @@ export async function registerRoutes(
       segments,
       timestamp: timestamp || null,
       graph_hash: snapshot.version,
-      total_events: segments.reduce((acc, s) => acc + s.event_ids.length, 0)
+      total_events: segments.reduce((acc, s) => acc + s.event_ids.length, 0),
+      license: "Apache-2.0"
     });
   });
+
+  // === RESEARCH VALIDATION ENDPOINTS ===
+
+  app.post('/api/research/upload-dataset', async (req, res) => {
+    try {
+      const { events, acknowledge_no_accuracy } = req.body;
+
+      if (!acknowledge_no_accuracy) {
+        return res.status(400).json({
+          message: "Upload requires acknowledgment that this system does not evaluate detection or classification metrics. Set acknowledge_no_accuracy to true."
+        });
+      }
+
+      if (!events || !Array.isArray(events) || events.length === 0) {
+        return res.status(400).json({ message: "Events array is required and must not be empty." });
+      }
+
+      const validated: NormalizedEvent[] = [];
+      const errors: { index: number; error: string }[] = [];
+
+      for (let i = 0; i < events.length; i++) {
+        try {
+          const parsed = api.events.inject.input.parse(events[i]);
+          validated.push(parsed);
+        } catch (err) {
+          if (err instanceof z.ZodError) {
+            errors.push({ index: i, error: err.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join('; ') });
+          } else {
+            errors.push({ index: i, error: "Unknown validation error" });
+          }
+        }
+      }
+
+      if (errors.length > 0) {
+        return res.status(400).json({
+          message: `${errors.length} event(s) failed schema validation`,
+          validation_errors: errors,
+          valid_count: validated.length
+        });
+      }
+
+      await storage.resetGraph();
+
+      let processed = 0;
+      for (const event of validated) {
+        await storage.injectEvent(event);
+        processed++;
+      }
+
+      storage.setScenarioInfo("researcher_upload", 0);
+      const snapshot = await storage.getGraphSnapshot();
+
+      res.json({
+        dataset_id: snapshot.version,
+        events_processed: processed,
+        graph_hash: snapshot.version,
+        nodes: snapshot.stats.node_count,
+        edges: snapshot.stats.edge_count
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Dataset upload failed" });
+    }
+  });
+
+  app.post('/api/research/validate-structure', async (req, res) => {
+    try {
+      const { expected_paths } = req.body;
+
+      if (!expected_paths || !Array.isArray(expected_paths)) {
+        return res.status(400).json({ message: "expected_paths array is required" });
+      }
+
+      const snapshot = await storage.getGraphSnapshot();
+      const edgeMap = new Map<string, boolean>();
+      for (const edge of snapshot.edges) {
+        edgeMap.set(`${edge.source}|${edge.target}`, true);
+      }
+
+      const validated_paths: { path: string[]; status: string }[] = [];
+      const missing_paths: { path: string[]; missing_segment: { from: string; to: string } }[] = [];
+
+      for (const expectedPath of expected_paths) {
+        if (!Array.isArray(expectedPath) || expectedPath.length < 2) continue;
+
+        let pathValid = true;
+        let missingFrom = "";
+        let missingTo = "";
+
+        for (let i = 0; i < expectedPath.length - 1; i++) {
+          const key = `${expectedPath[i]}|${expectedPath[i + 1]}`;
+          if (!edgeMap.has(key)) {
+            pathValid = false;
+            missingFrom = expectedPath[i];
+            missingTo = expectedPath[i + 1];
+            break;
+          }
+        }
+
+        if (pathValid) {
+          validated_paths.push({ path: expectedPath, status: "reconstructed" });
+        } else {
+          missing_paths.push({ path: expectedPath, missing_segment: { from: missingFrom, to: missingTo } });
+        }
+      }
+
+      const allEdgePairs = snapshot.edges.map(e => `${e.source}->${e.target}`);
+      const expectedPairSets = new Set(
+        expected_paths.flatMap((p: string[]) => {
+          const pairs: string[] = [];
+          for (let i = 0; i < p.length - 1; i++) pairs.push(`${p[i]}->${p[i + 1]}`);
+          return pairs;
+        })
+      );
+      const unexpected_paths = allEdgePairs
+        .filter(p => !expectedPairSets.has(p))
+        .slice(0, 20);
+
+      res.json({ validated_paths, missing_paths, unexpected_paths });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Structural validation failed" });
+    }
+  });
+
+  app.post('/api/research/validate-temporal', async (req, res) => {
+    try {
+      const { path, expected_windows } = req.body;
+
+      if (!path || !Array.isArray(path) || path.length < 2) {
+        return res.status(400).json({ message: "path must be an array of at least 2 node IDs" });
+      }
+      if (!expected_windows || !Array.isArray(expected_windows)) {
+        return res.status(400).json({ message: "expected_windows array is required" });
+      }
+
+      const snapshot = await storage.getGraphSnapshot();
+      const edgeMap = new Map(
+        snapshot.edges.map(e => [`${e.source}|${e.target}`, e])
+      );
+
+      const edgeWindows: { from: string; to: string; first_seen: string; last_seen: string }[] = [];
+      for (let i = 0; i < path.length - 1; i++) {
+        const key = `${path[i]}|${path[i + 1]}`;
+        const edge = edgeMap.get(key);
+        if (edge) {
+          edgeWindows.push({
+            from: path[i],
+            to: path[i + 1],
+            first_seen: edge.first_seen,
+            last_seen: edge.last_seen
+          });
+        }
+      }
+
+      let overlapStart = 0;
+      let overlapEnd = Infinity;
+      for (const ew of edgeWindows) {
+        overlapStart = Math.max(overlapStart, new Date(ew.first_seen).getTime());
+        overlapEnd = Math.min(overlapEnd, new Date(ew.last_seen).getTime());
+      }
+
+      const observed_windows = edgeWindows.length === path.length - 1 && overlapStart <= overlapEnd
+        ? [{ start: new Date(overlapStart).toISOString(), end: new Date(overlapEnd).toISOString() }]
+        : [];
+
+      let matches = false;
+      if (observed_windows.length > 0) {
+        for (const ew of expected_windows) {
+          const ewStart = new Date(ew.start).getTime();
+          const ewEnd = new Date(ew.end).getTime();
+          if (overlapStart <= ewEnd && overlapEnd >= ewStart) {
+            matches = true;
+            break;
+          }
+        }
+      }
+
+      res.json({
+        path,
+        expected_windows,
+        observed_windows,
+        edge_details: edgeWindows,
+        matches
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Temporal validation failed" });
+    }
+  });
+
+  app.post('/api/research/verify-determinism', async (req, res) => {
+    try {
+      const allEvents = await storage.getEvents();
+      if (allEvents.length === 0) {
+        return res.status(400).json({ message: "No events in current dataset to verify" });
+      }
+
+      const sortedEvents = [...allEvents].sort(
+        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
+
+      const { GraphEngine: GE } = await import("./graph_engine");
+
+      const engine1 = new GE();
+      for (const event of sortedEvents) engine1.processEvent(event);
+      const snap1 = engine1.getSnapshot();
+
+      const engine2 = new GE();
+      for (const event of sortedEvents) engine2.processEvent(event);
+      const snap2 = engine2.getSnapshot();
+
+      const deterministic = snap1.version === snap2.version;
+
+      res.json({
+        deterministic,
+        graph_hash: snap1.version,
+        replay_count: 2,
+        events_replayed: sortedEvents.length
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Determinism verification failed" });
+    }
+  });
+
+  // === END RESEARCH VALIDATION ENDPOINTS ===
 
   const existingSnapshot = await storage.getGraphSnapshot();
   if (existingSnapshot.stats.event_count === 0) {

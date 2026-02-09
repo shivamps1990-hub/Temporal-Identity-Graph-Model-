@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RefreshCw, PlayCircle, Hash, Users, Clock, GitBranch, Layers, Download } from "lucide-react";
+import { RefreshCw, PlayCircle, Hash, Users, Clock, GitBranch, Layers, Download, Bug } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type GraphNode } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
@@ -29,6 +29,8 @@ export default function Dashboard() {
   const [selectedScenario, setSelectedScenario] = useState("cicd_compromise");
   const [replayTimestamp, setReplayTimestamp] = useState<string | null>(null);
   const [graphHash, setGraphHash] = useState<string | null>(null);
+  const [replaySpeed, setReplaySpeed] = useState(1);
+  const [showDebug, setShowDebug] = useState(false);
 
   const queryClient = useQueryClient();
   const { data: snapshot, isLoading } = useGraphSnapshot(replayTimestamp);
@@ -168,6 +170,15 @@ export default function Dashboard() {
                 <p className="text-xs max-w-[220px]">Download metadata describing the experimental scenario and intended analysis points.</p>
               </TooltipContent>
             </Tooltip>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowDebug(d => !d)}
+              className={showDebug ? 'border-primary text-primary' : ''}
+              data-testid="button-toggle-debug"
+            >
+              <Bug className="w-4 h-4" />
+            </Button>
           </div>
         </div>
 
@@ -281,6 +292,9 @@ export default function Dashboard() {
             edges={snapshot?.edges || []}
             isLoading={isLoading || isResetting || isReplaying}
             onNodeClick={handleNodeClick}
+            currentTime={replayTimestamp}
+            replaySpeed={replaySpeed}
+            showDebugOverlay={showDebug}
           />
         </div>
 
@@ -290,6 +304,7 @@ export default function Dashboard() {
               events={events || []}
               onTimestampChange={handleTimestampChange}
               onReset={handleReset}
+              onSpeedChange={setReplaySpeed}
             />
           </CardContent>
         </Card>

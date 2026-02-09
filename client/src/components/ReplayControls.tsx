@@ -8,6 +8,7 @@ import { format } from "date-fns";
 interface ReplayControlsProps {
   onTimestampChange: (timestamp: string | null) => void;
   onReset: () => void;
+  onSpeedChange?: (speed: number) => void;
   events: { event_id: string; timestamp: string }[];
 }
 
@@ -19,7 +20,7 @@ const SPEEDS = [
   { label: "10x", value: 10 },
 ];
 
-export function ReplayControls({ onTimestampChange, onReset, events }: ReplayControlsProps) {
+export function ReplayControls({ onTimestampChange, onReset, onSpeedChange, events }: ReplayControlsProps) {
   const safeEvents = events || [];
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(safeEvents.length);
@@ -153,7 +154,7 @@ export function ReplayControls({ onTimestampChange, onReset, events }: ReplayCon
           <Button variant="outline" size="icon" onClick={jumpToEnd} title="Jump to Live" data-testid="button-jump-end">
             <SkipForward className="w-4 h-4" />
           </Button>
-          <Select value={String(speed)} onValueChange={(v) => setSpeed(Number(v))}>
+          <Select value={String(speed)} onValueChange={(v) => { setSpeed(Number(v)); onSpeedChange?.(Number(v)); }}>
             <SelectTrigger className="w-20 font-mono text-xs" data-testid="select-speed">
               <SelectValue />
             </SelectTrigger>

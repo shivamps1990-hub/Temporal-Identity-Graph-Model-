@@ -3,8 +3,9 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Link } from "wouter";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ChevronDown, Scale } from "lucide-react";
 import shivamPhoto from "@/assets/images/shivam.png";
 
 export default function About() {
@@ -107,6 +108,66 @@ export default function About() {
               </p>
             </CardContent>
           </Card>
+        </section>
+
+        <Separator />
+
+        <section className="space-y-4" data-testid="section-license">
+          <div className="flex items-center gap-2">
+            <Scale className="w-5 h-5 text-muted-foreground" />
+            <h2 className="text-xl font-semibold tracking-tight">License and Usage</h2>
+          </div>
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                This research prototype is released under the Apache License, Version 2.0.
+              </p>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                You may use, modify, and distribute this software in accordance with the terms of the license.
+                The software is provided on an "AS IS" basis, without warranties or conditions of any kind.
+              </p>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                This application is intended for research, education, and analytical experimentation.
+                It is not a production system and does not provide security guarantees.
+              </p>
+              <div className="pt-2">
+                <Button variant="outline" size="sm" asChild>
+                  <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" rel="noopener noreferrer" data-testid="link-license-text">
+                    View full license text
+                    <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                  </a>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-sm font-mono text-muted-foreground" data-testid="text-copyright">
+                Copyright &copy; 2026 Shivam
+              </p>
+              <p className="text-sm font-mono text-muted-foreground mt-1">
+                Licensed under the Apache License, Version 2.0.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Collapsible>
+            <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium text-muted-foreground py-2">
+              <ChevronDown className="w-3.5 h-3.5" />
+              Notice
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    This product includes software developed for open research purposes.
+                    All datasets used in this application are synthetic and generated for demonstration and reproducibility.
+                  </p>
+                </CardContent>
+              </Card>
+            </CollapsibleContent>
+          </Collapsible>
         </section>
       </div>
     </div>

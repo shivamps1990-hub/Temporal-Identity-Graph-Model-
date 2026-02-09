@@ -1,0 +1,227 @@
+(Fix All Graph & Replay Animations Across Scenarios)
+
+CONTEXT
+
+The application correctly generates datasets, replays events, and computes paths and threats.
+However, animations are broken or inconsistent across scenarios.
+
+Observed problems may include:
+
+nodes/edges popping instead of animating
+
+animations working in one scenario but not others
+
+paths flickering or desynchronizing
+
+replay speed not affecting animation
+
+stale graph elements persisting after they should disappear
+
+This is a visual state + timing bug, not a data or logic issue.
+
+HARD CONSTRAINTS
+
+Do NOT change backend logic
+
+Do NOT change datasets
+
+Do NOT change analysis or threat derivation
+
+Do NOT add new features
+
+Do NOT redesign UI
+
+You are fixing animation correctness only.
+
+GOAL
+
+For every scenario (baseline, CI/CD, OT, long replay):
+
+Graph visibly evolves over time
+
+Nodes and edges animate in/out correctly
+
+Paths animate step-by-step
+
+Blast radius animates consistently
+
+Replay speed controls animation speed
+
+No flicker, no jumps, no stale visuals
+
+If animation is correct in one scenario but broken in another, the work is not complete.
+
+STEP 1 — SINGLE SOURCE OF TRUTH FOR TIME (MANDATORY)
+
+Ensure there is exactly one replay clock in the frontend:
+
+currentReplayTime
+
+
+Rules:
+
+Updated only by replay controller
+
+Read-only for all other components
+
+Passed as prop or via context to:
+
+Graph view
+
+Path analysis view
+
+Blast radius view
+
+Threat map view
+
+❌ No local timers
+❌ No duplicated time state
+
+STEP 2 — NORMALIZE ANIMATION PIPELINE
+
+All animations must follow the same pipeline:
+
+Compute G(T) from currentReplayTime
+
+Diff G(T-Δ) vs G(T)
+
+Animate only the delta
+
+Do NOT:
+
+mutate existing node/edge objects
+
+rely on implicit library state
+
+STEP 3 — FIX NODE & EDGE LIFECYCLE ANIMATIONS
+Visibility rule (absolute)
+visible = first_seen ≤ currentReplayTime ≤ last_seen
+
+Animation rules
+
+Invisible → Visible:
+
+opacity 0 → 1
+
+scale 0.9 → 1.0
+
+Visible → Invisible:
+
+opacity 1 → 0
+
+remove element after transition completes
+
+No hard removals during replay.
+
+STEP 4 — PATH ANIMATION (ALL SCENARIOS)
+
+When a path is shown:
+
+Animate hops sequentially
+
+Use consistent timing per hop (scaled by replay speed)
+
+Path must disappear immediately when invalid at time T
+
+Do not leave partial paths visible
+
+If replay time moves backward:
+
+path animation must reverse cleanly
+
+no duplicated highlights
+
+STEP 5 — BLAST RADIUS ANIMATION
+
+Animate outward from source node
+
+One hop per animation step
+
+Clear blast radius before recomputation
+
+No overlap with stale nodes
+
+Blast radius must strictly reflect G(T).
+
+STEP 6 — SPEED CONTROL FIX
+
+Replay speed must affect:
+
+time advancement
+
+animation duration
+
+animation delay
+
+Example:
+
+1× → 300ms per step
+
+5× → 60ms per step
+
+No hard-coded delays.
+
+STEP 7 — SCENARIO-INDEPENDENT FIXES
+
+Test animations explicitly on:
+
+baseline
+
+cicd_compromise
+
+ot_full_attack_chain
+
+large noisy scenario
+
+Ensure:
+
+long scenarios don’t drift
+
+short scenarios don’t skip
+
+animations remain smooth after pause/resume
+
+STEP 8 — TEMPORARY DEBUG OVERLAY (REQUIRED)
+
+Add a toggleable overlay:
+
+Replay Time: <timestamp>
+Visible Nodes: <count>
+Visible Edges: <count>
+Active Paths: <count>
+Replay Speed: <multiplier>
+
+
+This is for verification and can be hidden later.
+
+SUCCESS CRITERIA (ALL MUST PASS)
+
+ Animations work identically across all scenarios
+
+ Nodes/edges never “teleport”
+
+ Paths animate correctly or not at all
+
+ Replay speed visibly affects animation
+
+ No stale visual artifacts remain
+
+ Reverse replay works
+
+If any scenario fails, continue fixing.
+
+FINAL OUTPUT REQUIRED
+
+When complete, return:
+
+files modified
+
+brief explanation of animation model
+
+confirmation that backend/data were untouched
+
+Then STOP.
+
+FINAL RULE
+
+If time does not visibly control identity structure, the animation is wrong.
