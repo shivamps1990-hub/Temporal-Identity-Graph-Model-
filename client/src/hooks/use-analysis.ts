@@ -1,15 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
-import { api, buildUrl } from "@shared/routes";
+import { api } from "@shared/routes";
 
-export function useReachability(source: string, target: string, k: number = 5, enabled: boolean = false) {
+export function useReachability(source: string, target: string, k: number = 5, enabled: boolean = false, timestamp?: string | null) {
   return useQuery({
-    queryKey: [api.analysis.reachability.path, source, target, k],
+    queryKey: [api.analysis.reachability.path, source, target, k, timestamp ?? 'live'],
     enabled: enabled && !!source && !!target,
     queryFn: async () => {
-      const url = `${api.analysis.reachability.path}?source=${source}&target=${target}&k=${k}`;
+      let url = `${api.analysis.reachability.path}?source=${encodeURIComponent(source)}&target=${encodeURIComponent(target)}&k=${k}`;
+      if (timestamp) url += `&timestamp=${encodeURIComponent(timestamp)}`;
       const res = await fetch(url, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to analyze reachability");
-      return api.analysis.reachability.responses[200].parse(await res.json());
+      return res.json();
     },
   });
 }
@@ -25,15 +26,16 @@ export function useThreats() {
   });
 }
 
-export function useBlastRadius(source: string, k: number = 3, enabled: boolean = false) {
+export function useBlastRadius(source: string, k: number = 3, enabled: boolean = false, timestamp?: string | null) {
   return useQuery({
-    queryKey: [api.analysis.blastRadius.path, source, k],
+    queryKey: [api.analysis.blastRadius.path, source, k, timestamp ?? 'live'],
     enabled: enabled && !!source,
     queryFn: async () => {
-      const url = `${api.analysis.blastRadius.path}?source=${source}&k=${k}`;
+      let url = `${api.analysis.blastRadius.path}?source=${encodeURIComponent(source)}&k=${k}`;
+      if (timestamp) url += `&timestamp=${encodeURIComponent(timestamp)}`;
       const res = await fetch(url, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to calculate blast radius");
-      return api.analysis.blastRadius.responses[200].parse(await res.json());
+      return res.json();
     },
   });
 }

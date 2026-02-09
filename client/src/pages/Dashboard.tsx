@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RefreshCw, PlayCircle, Hash, Users, Clock, GitBranch, Layers } from "lucide-react";
+import { RefreshCw, PlayCircle, Hash, Users, Clock, GitBranch, Layers, Download } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type GraphNode } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -145,6 +146,28 @@ export default function Dashboard() {
               <RefreshCw className={`w-4 h-4 mr-2 ${isResetting ? 'animate-spin' : ''}`} />
               Reset
             </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" onClick={() => window.open('/export/replay-dataset', '_blank')} data-testid="button-export-dataset">
+                  <Download className="w-4 h-4 mr-1.5" />
+                  Export Replay Dataset
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs max-w-[220px]">Download the synthetic identity events used to construct the graph in this replay.</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" onClick={() => window.open('/export/scenario-metadata', '_blank')} data-testid="button-export-metadata">
+                  <Download className="w-4 h-4 mr-1.5" />
+                  Export Scenario Metadata
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs max-w-[220px]">Download metadata describing the experimental scenario and intended analysis points.</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
 

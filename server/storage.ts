@@ -7,10 +7,12 @@ export interface IStorage {
   getGraphSnapshot(atTimestamp?: string): Promise<GraphSnapshot>;
   resetGraph(): Promise<void>;
   getEvents(): Promise<NormalizedEvent[]>;
-  findReachability(source: string, target: string, k: number): Promise<any>;
+  findReachability(source: string, target: string, k: number, timestamp?: string): Promise<any>;
   analyzeThreats(): Promise<any>;
-  calculateBlastRadius(source: string, k: number): Promise<any>;
+  calculateBlastRadius(source: string, k: number, timestamp?: string): Promise<any>;
   deriveThreatMap(timestamp?: string): Promise<ThreatMapResult>;
+  setScenarioInfo(scenario: string, seed: number): void;
+  getScenarioInfo(): { scenario: string; seed: number };
 }
 
 export class MemStorage implements IStorage {
@@ -40,11 +42,12 @@ export class MemStorage implements IStorage {
     return this.engine.getEvents();
   }
 
-  async findReachability(source: string, target: string, k: number): Promise<any> {
-    const paths = this.engine.findPaths(source, target, k);
+  async findReachability(source: string, target: string, k: number, timestamp?: string): Promise<any> {
+    const paths = this.engine.findPaths(source, target, k, timestamp);
     return {
       found: paths.length > 0,
-      paths
+      paths,
+      timestamp: timestamp || null
     };
   }
 
@@ -52,15 +55,25 @@ export class MemStorage implements IStorage {
     return this.engine.detectThreats();
   }
 
-  async calculateBlastRadius(source: string, k: number): Promise<any> {
+  async calculateBlastRadius(source: string, k: number, timestamp?: string): Promise<any> {
     return {
-      reachable_nodes: this.engine.calculateBlastRadius(source, k)
+      reachable_nodes: this.engine.calculateBlastRadius(source, k, timestamp),
+      source,
+      timestamp: timestamp || null
     };
   }
 
   async deriveThreatMap(timestamp?: string): Promise<ThreatMapResult> {
     const snapshot = this.engine.getSnapshot(timestamp);
     return deriveThreats(snapshot.nodes, snapshot.edges, timestamp || null);
+  }
+
+  setScenarioInfo(scenario: string, seed: number): void {
+    this.engine.setScenarioInfo(scenario, seed);
+  }
+
+  getScenarioInfo(): { scenario: string; seed: number } {
+    return this.engine.getScenarioInfo();
   }
 }
 

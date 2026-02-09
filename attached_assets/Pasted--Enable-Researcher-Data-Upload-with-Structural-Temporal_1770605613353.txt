@@ -1,0 +1,294 @@
+(Enable Researcher Data Upload with Structural & Temporal Validation — NOT Accuracy)
+
+CONTEXT
+
+This application is a research prototype for temporal, graph-based identity analysis.
+It is deterministic, rule-based, and non-predictive.
+
+The system:
+
+does not train models
+
+does not classify events as malicious or benign
+
+does not compute detection accuracy
+
+Your task is to allow researchers to upload their own datasets and evaluate the model, but only in terms of structural and temporal correctness.
+
+CRITICAL TERMINOLOGY CONSTRAINTS (NON-NEGOTIABLE)
+
+You must never use the following terms anywhere in UI, API, or documentation:
+
+❌ accuracy
+❌ precision / recall
+❌ false positives / false negatives
+❌ training data
+❌ model performance
+❌ prediction
+
+You must use only these terms:
+
+✅ structural correctness
+✅ temporal correctness
+✅ path reconstruction
+✅ deterministic replay
+✅ identity graph validation
+
+If you are unsure which term to use, do not invent one.
+
+GOAL
+
+Enable researchers to:
+
+Upload their own normalized identity event datasets
+
+Replay them deterministically
+
+Verify:
+
+whether expected identity paths exist
+
+whether paths appear/disappear at correct times
+
+whether replay results are stable and reproducible
+
+Inspect full evidence for every derived path
+
+This must be framed as model validation, not model accuracy.
+
+STEP 1 — DATA UPLOAD (RESEARCHER-PROVIDED DATA)
+Backend
+
+Add endpoint:
+
+POST /research/upload-dataset
+
+
+Requirements:
+
+Accept NDJSON normalized identity events
+
+Strict schema validation
+
+Reject malformed events with clear errors
+
+Store dataset as experimental replay input
+
+Add a required acknowledgment flag in request body:
+
+{
+  "acknowledge_no_accuracy": true
+}
+
+
+Reject uploads if acknowledgment is missing.
+
+UI
+
+Add a section titled:
+
+Researcher Dataset Upload
+
+
+UI copy (exact wording):
+
+Upload a normalized identity event dataset to evaluate structural
+and temporal properties of the identity graph.
+
+This system does not measure detection accuracy or attack likelihood.
+
+
+Checkbox (mandatory):
+
+☐ I understand this system evaluates structure and timing, not accuracy or prediction.
+
+
+Upload button disabled until checkbox is checked.
+
+STEP 2 — STRUCTURAL CORRECTNESS EVALUATION
+Concept
+
+Structural correctness answers:
+
+“Does the system reconstruct the identity paths that exist in the data?”
+
+Backend
+
+Add endpoint:
+
+POST /research/validate-structure
+
+
+Input:
+
+dataset reference
+
+list of expected paths (node sequences)
+
+Output:
+
+{
+  "validated_paths": [...],
+  "missing_paths": [...],
+  "unexpected_paths": [...]
+}
+
+
+Rules:
+
+Exact path matching
+
+Deterministic ordering
+
+No scoring or ranking
+
+UI
+
+Section title:
+
+Structural Validation
+
+
+Description (exact text):
+
+Structural validation checks whether identity paths implied by the dataset
+are reconstructed correctly by the graph model.
+
+
+Results shown as:
+
+Paths reconstructed
+
+Paths not reconstructed
+
+No numeric score
+
+STEP 3 — TEMPORAL CORRECTNESS EVALUATION
+Concept
+
+Temporal correctness answers:
+
+“Does a path exist only when all required relationships overlap in time?”
+
+Backend
+
+Add endpoint:
+
+POST /research/validate-temporal
+
+
+Input:
+
+dataset reference
+
+path
+
+expected time windows
+
+Output:
+
+{
+  "path": "...",
+  "expected_windows": [...],
+  "observed_windows": [...],
+  "matches": true | false
+}
+
+UI
+
+Section title:
+
+Temporal Validation
+
+
+Description (exact text):
+
+Temporal validation verifies that identity paths appear and disappear
+only when the required relationships overlap in time.
+
+
+Display:
+
+expected vs observed windows
+
+no numeric metric
+
+STEP 4 — DETERMINISM VERIFICATION (MANDATORY)
+Backend
+
+Add endpoint:
+
+POST /research/verify-determinism
+
+
+Behavior:
+
+Replay dataset twice
+
+Compare graph_hash
+
+Compare derived paths
+
+Output:
+
+{
+  "deterministic": true,
+  "graph_hash": "..."
+}
+
+UI
+
+Section title:
+
+Deterministic Replay Verification
+
+
+Copy:
+
+Deterministic replay ensures the same dataset always produces the same graph,
+paths, and analysis results.
+
+STEP 5 — EXPLICIT NON-CLAIMS (VISIBLE IN UI)
+
+Add a persistent info banner:
+
+This system does not evaluate accuracy, detect attacks,
+or measure security effectiveness.
+It evaluates identity structure and timing only.
+
+
+This banner must be visible on all research evaluation pages.
+
+STEP 6 — TESTS & GUARDRAILS
+
+Add tests to assert:
+
+upload fails without acknowledgment
+
+no endpoint returns numeric “accuracy” values
+
+determinism verification always stable for same dataset
+
+temporal validation fails when time windows are violated
+
+SUCCESS CRITERIA
+
+This feature is correct only if:
+
+ Researchers can upload their own data
+
+ Paths can be validated structurally
+
+ Temporal behavior can be validated
+
+ Determinism is provable
+
+ No UI or API mentions accuracy or ML metrics
+
+ Users cannot misinterpret results as detection performance
+
+FINAL RULE
+
+This system evaluates what identity paths exist and when — nothing more.
+
+If any feature implies prediction or accuracy, remove it.

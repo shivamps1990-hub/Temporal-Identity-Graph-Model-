@@ -10,6 +10,8 @@ export class GraphEngine {
   private nodes: Map<string, GraphNode> = new Map();
   private edges: Map<string, GraphEdge> = new Map();
   private events: NormalizedEvent[] = [];
+  private currentScenario: string = "cicd_compromise";
+  private currentSeed: number = 42;
 
   constructor() {
     this.reset();
@@ -19,6 +21,15 @@ export class GraphEngine {
     this.nodes.clear();
     this.edges.clear();
     this.events = [];
+  }
+
+  setScenarioInfo(scenario: string, seed: number) {
+    this.currentScenario = scenario;
+    this.currentSeed = seed;
+  }
+
+  getScenarioInfo() {
+    return { scenario: this.currentScenario, seed: this.currentSeed };
   }
 
   getEvents(): NormalizedEvent[] {
@@ -98,23 +109,26 @@ export class GraphEngine {
     return { nodesAdded, edgesAdded };
   }
 
-  getSnapshot(atTimestamp?: string): GraphSnapshot {
-    let filteredNodes: GraphNode[];
-    let filteredEdges: GraphEdge[];
-
+  private getFilteredState(atTimestamp?: string): { nodes: GraphNode[], edges: GraphEdge[] } {
     if (atTimestamp) {
       const t = new Date(atTimestamp).getTime();
-      filteredNodes = Array.from(this.nodes.values()).filter(n => {
-        return new Date(n.first_seen).getTime() <= t;
-      });
+      const filteredNodes = Array.from(this.nodes.values()).filter(n =>
+        new Date(n.first_seen).getTime() <= t
+      );
       const nodeIds = new Set(filteredNodes.map(n => n.id));
-      filteredEdges = Array.from(this.edges.values()).filter(e => {
-        return new Date(e.first_seen).getTime() <= t && nodeIds.has(e.source) && nodeIds.has(e.target);
-      });
-    } else {
-      filteredNodes = Array.from(this.nodes.values());
-      filteredEdges = Array.from(this.edges.values());
+      const filteredEdges = Array.from(this.edges.values()).filter(e =>
+        new Date(e.first_seen).getTime() <= t && nodeIds.has(e.source) && nodeIds.has(e.target)
+      );
+      return { nodes: filteredNodes, edges: filteredEdges };
     }
+    return {
+      nodes: Array.from(this.nodes.values()),
+      edges: Array.from(this.edges.values())
+    };
+  }
+
+  getSnapshot(atTimestamp?: string): GraphSnapshot {
+    const { nodes: filteredNodes, edges: filteredEdges } = this.getFilteredState(atTimestamp);
 
     const sortedNodes = filteredNodes.sort((a, b) => a.id.localeCompare(b.id));
     const sortedEdges = filteredEdges.sort((a, b) => 
@@ -136,21 +150,27 @@ export class GraphEngine {
     };
   }
 
-  findPaths(sourceId: string, targetId: string, maxHops: number = 5): any[] {
+  findPaths(sourceId: string, targetId: string, maxHops: number = 5, atTimestamp?: string): any[] {
+    const { nodes: filteredNodes, edges: filteredEdges } = this.getFilteredState(atTimestamp);
+    const nodeIds = new Set(filteredNodes.map(n => n.id));
+    const activeEdges = filteredEdges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target));
+
+    if (!nodeIds.has(sourceId) || !nodeIds.has(targetId)) return [];
+
     const paths: any[] = [];
     const queue: { id: string, path: any[] }[] = [{ id: sourceId, path: [] }];
 
     while (queue.length > 0) {
       const { id, path } = queue.shift()!;
       
-      if (path.length >= maxHops) continue;
+      if (path.length > maxHops) continue;
 
       if (id === targetId && path.length > 0) {
         paths.push(path);
         continue;
       }
 
-      for (const edge of Array.from(this.edges.values())) {
+      for (const edge of activeEdges) {
         if (edge.source === id) {
           if (path.some(p => p.source === edge.target)) continue;
           if (id !== sourceId && path.some(p => p.target === edge.target)) continue;
@@ -159,6 +179,8 @@ export class GraphEngine {
             source: edge.source,
             target: edge.target,
             label: edge.label,
+            first_seen: edge.first_seen,
+            last_seen: edge.last_seen,
             event_ids: edge.provenance
           }];
           
@@ -169,21 +191,29 @@ export class GraphEngine {
     return paths;
   }
 
-  calculateBlastRadius(sourceId: string, maxHops: number = 3): { id: string, distance: number, risk: number }[] {
-    const visited = new Map<string, { distance: number, risk: number }>();
+  calculateBlastRadius(sourceId: string, maxHops: number = 3, atTimestamp?: string): { id: string, distance: number, risk: number, type: string }[] {
+    const { nodes: filteredNodes, edges: filteredEdges } = this.getFilteredState(atTimestamp);
+    const nodeMap = new Map(filteredNodes.map(n => [n.id, n]));
+    const activeEdges = filteredEdges.filter(e => nodeMap.has(e.source) && nodeMap.has(e.target));
+
+    if (!nodeMap.has(sourceId)) return [];
+
+    const visited = new Map<string, { distance: number, risk: number, type: string }>();
     const queue: { id: string, distance: number }[] = [{ id: sourceId, distance: 0 }];
-    visited.set(sourceId, { distance: 0, risk: this.nodes.get(sourceId)?.risk_score || 0 });
+    const srcNode = nodeMap.get(sourceId)!;
+    visited.set(sourceId, { distance: 0, risk: srcNode.risk_score, type: srcNode.type });
 
     while (queue.length > 0) {
       const { id, distance } = queue.shift()!;
       if (distance >= maxHops) continue;
 
-      for (const edge of Array.from(this.edges.values())) {
+      for (const edge of activeEdges) {
         if (edge.source === id && !visited.has(edge.target)) {
-          const targetNode = this.nodes.get(edge.target);
-          const risk = targetNode?.risk_score || 0;
-          visited.set(edge.target, { distance: distance + 1, risk });
-          queue.push({ id: edge.target, distance: distance + 1 });
+          const targetNode = nodeMap.get(edge.target);
+          if (targetNode) {
+            visited.set(edge.target, { distance: distance + 1, risk: targetNode.risk_score, type: targetNode.type });
+            queue.push({ id: edge.target, distance: distance + 1 });
+          }
         }
       }
     }
@@ -191,8 +221,8 @@ export class GraphEngine {
     visited.delete(sourceId);
 
     return Array.from(visited.entries())
-      .map(([id, data]) => ({ id, distance: data.distance, risk: data.risk }))
-      .sort((a, b) => a.id.localeCompare(b.id));
+      .map(([id, data]) => ({ id, distance: data.distance, risk: data.risk, type: data.type }))
+      .sort((a, b) => a.distance - b.distance || a.id.localeCompare(b.id));
   }
 
   detectThreats(): any[] {

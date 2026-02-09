@@ -1,0 +1,228 @@
+(Fix Temporal Graph Replay Animation & Visual Correctness)
+
+CONTEXT
+
+The application correctly replays identity events and updates the temporal graph state, but the graph visualization does not animate correctly during replay.
+
+Observed issues may include:
+
+nodes/edges appearing instantly instead of transitioning
+
+paths not animating step-by-step
+
+graph not updating smoothly when time changes
+
+stale nodes/edges remaining visible
+
+replay speed controls not reflected visually
+
+This is a visual synchronization problem, not a data or logic problem.
+
+Your task is to correct the graph visualization so replay accurately shows temporal evolution.
+
+Do NOT change:
+
+dataset generation
+
+graph engine logic
+
+analysis logic
+
+Fix only visualization state, animation, and time coupling.
+
+GOAL
+
+When replay runs, the UI must clearly show:
+
+identities and relationships appearing when first_seen ≤ T
+
+identities and relationships disappearing when T > last_seen
+
+paths emerging and vanishing over time
+
+smooth animation that makes time dependency obvious
+
+If a user cannot visually see why a path exists at one time and not another, the work is incomplete.
+
+STEP 1 — DEFINE SINGLE SOURCE OF TRUTH FOR TIME
+
+Introduce a single global replay clock in the frontend:
+
+currentReplayTime
+
+This value:
+
+is controlled by replay controls
+
+drives graph rendering
+
+drives path/blast/threat queries
+
+❗ No component should compute its own time.
+
+STEP 2 — FIX GRAPH RENDERING STRATEGY
+Required rendering model
+
+Graph component must re-render from snapshot, not mutate old state.
+
+On every time update:
+
+fetch or derive G(T)
+
+diff previous vs current state
+
+animate changes
+
+Do NOT:
+
+reuse stale node objects
+
+keep nodes without checking temporal validity
+
+STEP 3 — NODE & EDGE TEMPORAL VISIBILITY
+
+For each node and edge:
+
+Visibility condition (mandatory)
+visible = first_seen ≤ currentReplayTime ≤ last_seen
+
+Animation rules
+
+On transition from invisible → visible:
+
+fade in (opacity 0 → 1)
+
+slight scale-up animation
+
+On transition from visible → invisible:
+
+fade out
+
+remove after animation completes
+
+Never hard-remove without animation during replay.
+
+STEP 4 — PATH ANIMATION CORRECTION
+
+When a path is selected or detected:
+
+Required behavior
+
+Animate traversal in order:
+
+node₀ → node₁ → … → nodeₖ
+
+Delay each hop slightly (e.g., 150–300ms)
+
+Highlight edges briefly as traversal occurs
+
+Temporal constraint
+
+If at any point:
+
+currentReplayTime ∉ [first_seen, last_seen]
+
+
+for any edge in the path:
+
+stop animation
+
+hide path
+
+show “Path not valid at this time”
+
+No partial paths.
+
+STEP 5 — REPLAY CONTROLS & SPEED FIX
+
+Replay controls must affect visual timing, not just time jumps.
+
+Speed handling
+
+1× → real-time stepping
+
+2× / 5× → proportional animation speed
+
+Step forward/back:
+
+single event or fixed time delta
+
+animated transition, not instant jump
+
+STEP 6 — SYNC WITH ANALYSIS & THREAT VISUALS
+
+Ensure:
+
+when replay time changes:
+
+path analysis re-queries for that time
+
+blast radius recalculates
+
+threat map refreshes
+
+All highlights must:
+
+appear after graph state updates
+
+disappear before invalid edges are removed
+
+STEP 7 — DEBUG VISUAL CONSISTENCY (TEMPORARY OVERLAY)
+
+Add a temporary debug overlay (can be disabled later):
+
+Display:
+
+Replay Time: <timestamp>
+Visible Nodes: <count>
+Visible Edges: <count>
+Active Paths: <count>
+
+
+This helps verify animation correctness.
+
+STEP 8 — VALIDATION SCENARIOS
+
+Verify animation correctness using:
+
+ot_full_attack_chain
+
+Pause at time where path exists → path visible
+
+Advance time until token expires → path fades out
+
+Reverse replay → path fades back in
+
+Change speed → animation remains smooth
+
+SUCCESS CRITERIA
+
+The fix is complete only if:
+
+ Graph visibly evolves over time
+
+ No “teleporting” nodes or edges
+
+ Paths animate in correct order
+
+ Paths disappear exactly when time window closes
+
+ Replay speed affects animation speed
+
+ No stale graph elements persist
+
+FINAL OUTPUT REQUIRED
+
+When finished, provide:
+
+files modified
+
+brief explanation of animation strategy
+
+confirmation no backend logic was changed
+
+Then STOP.
+
+FINAL RULE
+
+If time does not visibly matter during replay, the visualization is wrong.
