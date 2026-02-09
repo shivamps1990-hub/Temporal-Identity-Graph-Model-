@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { GraphCanvas } from "@/components/GraphCanvas";
 import { ReplayControls } from "@/components/ReplayControls";
 import { NodeDetails } from "@/components/NodeDetails";
@@ -6,19 +6,37 @@ import { useGraphSnapshot, useResetGraph } from "@/hooks/use-graph";
 import { useReplayEvents } from "@/hooks/use-events";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RefreshCw, PlayCircle, Info } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RefreshCw, PlayCircle, Hash } from "lucide-react";
 import { type GraphNode } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
-import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+
+interface Scenario {
+  name: string;
+  label: string;
+  description: string;
+}
 
 export default function Dashboard() {
-  const { data: snapshot, isLoading, refetch } = useGraphSnapshot();
+  const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [selectedScenario, setSelectedScenario] = useState("cicd_compromise");
+  const [replayTimestamp, setReplayTimestamp] = useState<string | null>(null);
+  const [graphHash, setGraphHash] = useState<string | null>(null);
+
+  const { data: snapshot, isLoading, refetch } = useGraphSnapshot(replayTimestamp);
   const { mutate: resetGraph, isPending: isResetting } = useResetGraph();
   const { mutate: replayScenario, isPending: isReplaying } = useReplayEvents();
   const { toast } = useToast();
-  
-  const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+
+  const { data: scenarios } = useQuery<Scenario[]>({
+    queryKey: ['/api/scenarios'],
+  });
+
+  const { data: events } = useQuery<{ event_id: string; timestamp: string }[]>({
+    queryKey: ['/api/events'],
+  });
 
   const handleNodeClick = (node: GraphNode) => {
     setSelectedNode(node);
@@ -29,125 +47,95 @@ export default function Dashboard() {
     resetGraph(undefined, {
       onSuccess: () => {
         toast({ title: "Graph Reset", description: "Identity graph has been cleared." });
+        setGraphHash(null);
+        setReplayTimestamp(null);
         refetch();
       }
     });
   };
 
-  const handleScenarioLoad = (scenario: string) => {
-    replayScenario({ scenario, reset: true }, {
+  const handleScenarioLoad = () => {
+    replayScenario({ scenario: selectedScenario, reset: true }, {
       onSuccess: (data) => {
         toast({ 
           title: "Scenario Loaded", 
-          description: `Processed ${data.stats.events_processed} events. Found ${data.stats.final_nodes} nodes.` 
+          description: `${data.stats.events_processed} events processed. ${data.stats.final_nodes} nodes, ${data.stats.final_edges} edges.` 
         });
+        setGraphHash(data.graph_hash);
+        setReplayTimestamp(null);
         refetch();
       }
     });
   };
 
-  // Mock time range for prototype
-  const now = new Date();
-  const startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const handleTimestampChange = useCallback((ts: string | null) => {
+    setReplayTimestamp(ts);
+  }, []);
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <div className="flex items-center justify-between p-6 border-b border-border bg-card/50 backdrop-blur">
-        <div>
-          <h2 className="text-2xl font-mono font-bold tracking-tight">Active Identity Graph</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Real-time visualization of identity relationships and temporal flows.
+      <div className="flex items-center justify-between p-4 border-b border-border bg-card/50 backdrop-blur flex-wrap gap-3">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-2xl font-mono font-bold tracking-tight" data-testid="text-page-title">Temporal Identity Graph</h2>
+          <p className="text-xs text-muted-foreground mt-1 font-mono">
+            {replayTimestamp ? `Viewing at: ${replayTimestamp}` : "Live view"}
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <Select value={selectedScenario} onValueChange={setSelectedScenario}>
+            <SelectTrigger className="w-[200px] font-mono text-xs" data-testid="select-scenario">
+              <SelectValue placeholder="Select scenario" />
+            </SelectTrigger>
+            <SelectContent>
+              {(scenarios || []).map(s => (
+                <SelectItem key={s.name} value={s.name} data-testid={`option-scenario-${s.name}`}>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button 
             variant="outline" 
-            onClick={() => handleScenarioLoad('baseline')}
+            onClick={handleScenarioLoad}
             disabled={isReplaying}
+            data-testid="button-load-scenario"
           >
             <PlayCircle className="w-4 h-4 mr-2" />
-            Load Baseline
+            {isReplaying ? "Loading..." : "Load"}
           </Button>
           <Button 
             variant="destructive" 
             onClick={handleReset}
             disabled={isResetting}
+            data-testid="button-reset-graph"
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${isResetting ? 'animate-spin' : ''}`} />
-            Reset Graph
+            Reset
           </Button>
         </div>
       </div>
 
-      <div className="flex-1 relative overflow-hidden p-6 flex flex-col gap-6">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 min-h-0 flex-1">
-          <div className="lg:col-span-3 flex flex-col gap-6 min-h-0">
-            <div className="flex-1 min-h-0 rounded-xl overflow-hidden shadow-2xl shadow-black/50 border border-border bg-black/20">
-              <GraphCanvas 
-                nodes={snapshot?.nodes || []} 
-                edges={snapshot?.edges || []}
-                isLoading={isLoading || isResetting || isReplaying}
-                onNodeClick={handleNodeClick}
-              />
-            </div>
-          </div>
+      {graphHash && (
+        <div className="px-4 py-2 bg-muted/30 border-b border-border flex items-center gap-2 font-mono text-[10px] text-muted-foreground">
+          <Hash className="w-3 h-3" />
+          <span>graph_hash: {graphHash.substring(0, 16)}...{graphHash.substring(graphHash.length - 8)}</span>
+        </div>
+      )}
 
-          <div className="hidden lg:flex flex-col gap-6 overflow-auto">
-            <Card className="border-primary/20 bg-primary/5">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-mono text-primary flex items-center gap-2">
-                  <Info className="w-4 h-4" />
-                  RESEARCH CONTEXT
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">The Temporal Gap</h4>
-                  <p className="text-xs leading-relaxed text-muted-foreground">
-                    Traditional IAM models are static. This prototype explores how access <strong>emerges from paths over time</strong>, especially for non-human identities.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Blast Radius</h4>
-                  <p className="text-xs leading-relaxed text-muted-foreground">
-                    In a graph model, blast radius is a reachability problem. We compute structural impact across IT, Cloud, and OT domains.
-                  </p>
-                </div>
-                <Link href="/about">
-                  <Button variant="ghost" className="p-0 h-auto text-xs text-primary hover:text-primary/80">
-                    Read the full research paper →
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border bg-card/30">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-mono">SCENARIOS</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="w-full justify-start font-mono text-[10px]"
-                  onClick={() => handleScenarioLoad('cicd_compromise')}
-                  disabled={isReplaying}
-                >
-                  CICD_COMPROMISE.ndjson
-                </Button>
-                <p className="text-[10px] text-muted-foreground italic px-1">
-                  Trace: Human → Jenkins → Cloud Role → K8s Admin → OT Gateway → PLC
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+      <div className="flex-1 relative overflow-hidden p-4 flex flex-col gap-4">
+        <div className="flex-1 min-h-0 rounded-xl overflow-hidden shadow-2xl shadow-black/50 border border-border bg-black/20">
+          <GraphCanvas 
+            nodes={snapshot?.nodes || []} 
+            edges={snapshot?.edges || []}
+            isLoading={isLoading || isResetting || isReplaying}
+            onNodeClick={handleNodeClick}
+          />
         </div>
 
         <Card className="border-border bg-card/50">
           <ReplayControls 
-            startTime={startTime} 
-            endTime={now} 
-            onReplay={(val) => console.log(val)} 
+            events={events || []}
+            onTimestampChange={handleTimestampChange}
             onReset={handleReset}
           />
         </Card>

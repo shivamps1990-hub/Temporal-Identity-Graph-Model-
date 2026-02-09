@@ -37,6 +37,7 @@ export function useReplayEvents() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.graph.snapshot.path] });
+      queryClient.invalidateQueries({ queryKey: ['/api/events'] });
     },
   });
 }

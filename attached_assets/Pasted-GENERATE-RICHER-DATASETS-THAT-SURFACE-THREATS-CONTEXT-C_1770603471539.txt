@@ -1,0 +1,164 @@
+GENERATE RICHER DATASETS THAT SURFACE THREATS
+CONTEXT
+
+Current datasets do not reliably surface threats because:
+
+paths are too clean
+
+lifetimes overlap too perfectly
+
+insufficient noise vs signal
+
+not enough misconfiguration patterns
+
+Your task is to expand dataset generation so threat derivation is unavoidable.
+
+GOAL
+
+Generate scenario-driven datasets that intentionally create:
+
+ambiguous identity ownership
+
+long transitive chains
+
+stale credentials
+
+reactivation events
+
+cross-domain bridges
+
+All datasets must remain synthetic and deterministic.
+
+STEP 1 — ADD SCENARIOS
+
+Extend dataset_gen.py with at least these scenarios:
+
+1. shadow_ot_bridge
+
+Cloud workload accidentally left with OT gateway access
+
+No active human ownership at time T
+
+Produces orphan NHI threat
+
+2. cicd_token_sprawl
+
+Many short-lived CI/CD tokens
+
+One token reused incorrectly
+
+Produces excessive delegation threat
+
+3. vendor_remote_access
+
+External service account
+
+Long-lived access to OT gateway
+
+Weak ownership trail
+
+4. delayed_blast_radius
+
+Identity compromise early
+
+Reachability only emerges hours later
+
+Demonstrates delayed risk
+
+STEP 2 — DATASET CHARACTERISTICS
+
+All new datasets must include:
+
+≥ 1,000 events minimum
+
+≥ 3 overlapping identity chains
+
+background benign traffic (≥70%)
+
+correlation_id per chain
+
+time gaps to break naïve snapshot analysis
+
+Support:
+
+--scale_factor 1|10|100
+
+STEP 3 — DATASET METADATA
+
+For each dataset, auto-generate:
+
+examples/scenarios/<name>.meta.json
+
+
+Including:
+
+description
+
+intended threats
+
+expected number of threats
+
+recommended timestamps to inspect
+
+This helps researchers and reviewers.
+
+STEP 4 — VERIFY THREAT VISIBILITY
+
+Add test:
+
+replay dataset
+
+call /analysis/threat-map
+
+assert ≥ 1 threat of expected type exists
+
+FINAL OUTPUT REQUIRED
+
+Return:
+
+list of new scenarios
+
+commands to generate them
+
+which threats each scenario is designed to surface
+
+confirmation deterministic behavior holds
+
+Then STOP.
+
+END PROMPT 2
+WHY THIS FIXES YOUR PROBLEM (IMPORTANT)
+
+Right now:
+
+you have structure
+
+but no semantic layer
+
+These prompts:
+
+separate graph from threat interpretation
+
+make threats visible, explainable, and temporal
+
+align perfectly with your research claim:
+
+risk emerges from paths over time
+
+What to do next
+
+Paste Prompt 1 into Replit → run
+
+Paste Prompt 2 into Replit → run
+
+Replay ot_full_attack_chain
+
+Confirm threats appear/disappear with time
+
+Bring the threat map output back here and I’ll:
+
+sanity-check the threat semantics
+
+help you word this cleanly for your paper
+
+tune severity math so it’s defensible, not arbitrary

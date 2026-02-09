@@ -4,14 +4,12 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { NormalizedEvent } from "@shared/schema";
-import { generateScenario } from "./lib/dataset_gen";
+import { generateScenario, AVAILABLE_SCENARIOS } from "./lib/dataset_gen";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  
-  // --- Events ---
   
   app.post(api.events.inject.path, async (req, res) => {
     try {
@@ -41,7 +39,6 @@ export async function registerRoutes(
 
       let eventsToProcess: NormalizedEvent[] = events || [];
 
-      // If scenario provided, generate it
       if (scenario) {
         const seed = req.body.seed || 42;
         const generatedEvents = generateScenario(scenario, seed);
@@ -69,10 +66,9 @@ export async function registerRoutes(
     }
   });
 
-  // --- Graph ---
-
   app.get(api.graph.snapshot.path, async (req, res) => {
-    const snapshot = await storage.getGraphSnapshot();
+    const timestamp = req.query.timestamp as string | undefined;
+    const snapshot = await storage.getGraphSnapshot(timestamp);
     res.json(snapshot);
   });
 
@@ -81,7 +77,14 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
-  // --- Analysis ---
+  app.get('/api/scenarios', async (_req, res) => {
+    res.json(AVAILABLE_SCENARIOS);
+  });
+
+  app.get('/api/events', async (_req, res) => {
+    const events = await storage.getEvents();
+    res.json(events);
+  });
 
   app.get(api.analysis.reachability.path, async (req, res) => {
     const { source, target, k } = req.query;
@@ -100,7 +103,13 @@ export async function registerRoutes(
     res.json(threats);
   });
 
-  // Seed data on startup
+  app.get(api.analysis.blastRadius.path, async (req, res) => {
+    const { source, k } = req.query;
+    if (!source) return res.status(400).json({ message: "Missing source" });
+    const result = await storage.calculateBlastRadius(String(source), Number(k) || 3);
+    res.json(result);
+  });
+
   const existingSnapshot = await storage.getGraphSnapshot();
   if (existingSnapshot.stats.event_count === 0) {
     console.log("Seeding initial data (CICD Compromise Scenario)...");

@@ -1,19 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@shared/routes";
 
-export function useGraphSnapshot(timestamp?: string) {
+export function useGraphSnapshot(timestamp?: string | null) {
   return useQuery({
-    queryKey: [api.graph.snapshot.path, timestamp],
+    queryKey: [api.graph.snapshot.path, timestamp ?? 'live'],
     queryFn: async () => {
       const url = timestamp 
-        ? `${api.graph.snapshot.path}?timestamp=${timestamp}` 
+        ? `${api.graph.snapshot.path}?timestamp=${encodeURIComponent(timestamp)}` 
         : api.graph.snapshot.path;
       
       const res = await fetch(url, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch graph snapshot");
       return api.graph.snapshot.responses[200].parse(await res.json());
     },
-    refetchInterval: 5000, // Poll for updates
+    refetchInterval: timestamp ? false : 5000,
   });
 }
 
@@ -29,6 +29,7 @@ export function useResetGraph() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.graph.snapshot.path] });
+      queryClient.invalidateQueries({ queryKey: ['/api/events'] });
     },
   });
 }

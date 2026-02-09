@@ -1,0 +1,218 @@
+MAKE THREATS VISIBLE (THREAT MAP DERIVED FROM GRAPH)
+CONTEXT
+
+The current application correctly builds a temporal identity graph, but threats are not visible or obvious to the user.
+
+This is expected:
+graphs show structure, threats are interpretations.
+
+Your task is to derive a Threat Map from the existing temporal identity graph and make it visually and analytically explicit.
+
+Do NOT invent alerts.
+Do NOT use ML.
+Do NOT mutate the graph.
+
+Threats must be purely derived from graph structure + time.
+
+GOAL
+
+Create a Threat Map layer that:
+
+detects risky identity patterns
+
+explains why they are risky
+
+visualizes them on the UI
+
+updates correctly with temporal replay
+
+STEP 1 — DEFINE THREAT SEMANTICS (CODE, NOT TEXT)
+
+Create or update:
+
+backend/app/api/threats.py
+
+
+Implement deterministic threat derivation rules operating on G(T).
+
+Mandatory Threat Types
+
+Implement at least the following:
+
+1. IT → OT PATH THREAT
+
+Trigger when:
+
+a path exists from HUMAN or IT identity
+
+to PLC or SCADA
+
+within bounded depth K
+
+at time T
+
+Return:
+
+threat_id
+
+threat_type = "IT_TO_OT_PATH"
+
+path (node sequence)
+
+first_seen_time
+
+supporting event_ids
+
+severity = function(path length, max risk score)
+
+2. ORPHAN NON-HUMAN IDENTITY
+
+Trigger when:
+
+NHI has access edges
+
+but no active owner path from a human identity at time T
+
+Return:
+
+identity_id
+
+duration orphaned
+
+last controlling event
+
+severity proportional to duration
+
+3. EXCESSIVE TRANSITIVE DELEGATION
+
+Trigger when:
+
+delegation chain length ≥ threshold (e.g. 4)
+
+involving CI/CD → cloud → workload → OT
+
+Return:
+
+full delegation chain
+
+depth
+
+time window
+
+4. DORMANT → ACTIVE REACTIVATION
+
+Trigger when:
+
+identity was inactive for long duration
+
+becomes active
+
+immediately participates in sensitive path
+
+Return:
+
+dormancy duration
+
+activation event
+
+downstream reachability
+
+STEP 2 — THREAT MAP API
+
+Expose:
+
+GET /analysis/threat-map?timestamp=T
+
+
+Response MUST include:
+
+{
+  "timestamp": "...",
+  "threats": [
+    {
+      "threat_id": "...",
+      "type": "...",
+      "severity": "LOW|MEDIUM|HIGH",
+      "nodes_involved": [...],
+      "paths": [...],
+      "evidence": {
+        "event_ids": [...],
+        "first_seen": "...",
+        "last_seen": "..."
+      }
+    }
+  ]
+}
+
+
+Rules:
+
+Sorted output (stable ordering)
+
+No randomness
+
+Same T → same output
+
+STEP 3 — UI: THREAT MAP VISUALIZATION
+
+Update frontend to add a Threat Map panel.
+
+Required UI behavior
+
+Toggle: Show Threat Map
+
+When enabled:
+
+Threatened nodes outlined in red/orange
+
+Threat paths pulsing or animated
+
+Clicking a threat:
+
+highlights exact path
+
+shows explanation:
+
+why this is a threat
+
+when it emerged
+
+what identities are involved
+
+Temporal Replay Interaction
+
+As replay moves:
+
+threats appear/disappear
+
+threat timeline updates
+
+If a path disappears, threat must disappear
+
+This makes time-dependent risk visible, which is the core research claim.
+
+STEP 4 — VALIDATION
+
+Add tests:
+
+backend/app/tests/test_threats.py
+
+
+Tests must assert:
+
+same replay → same threat map
+
+threat exists at T1 but not at T2
+
+shuffled events → same threats
+
+SUCCESS CRITERIA
+
+If a user replays ot_full_attack_chain:
+
+threats visibly appear
+
+threat explanations are readable
+
+OT compromise paths are unmistakable
+

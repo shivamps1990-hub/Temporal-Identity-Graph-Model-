@@ -3,18 +3,13 @@ import {
   GraphEdge, 
   NormalizedEvent, 
   GraphSnapshot, 
-  NodeDataSchema, 
-  EdgeDataSchema 
 } from "@shared/schema";
 import { createHash } from "crypto";
 
 export class GraphEngine {
   private nodes: Map<string, GraphNode> = new Map();
-  private edges: Map<string, GraphEdge> = new Map(); // Key: source|target|label
+  private edges: Map<string, GraphEdge> = new Map();
   private events: NormalizedEvent[] = [];
-  
-  // Provenance tracking
-  private eventEffects: Map<string, { nodes: string[], edges: string[] }> = new Map();
 
   constructor() {
     this.reset();
@@ -24,22 +19,18 @@ export class GraphEngine {
     this.nodes.clear();
     this.edges.clear();
     this.events = [];
-    this.eventEffects.clear();
   }
 
-  /**
-   * U(G, event) - The deterministic update function
-   */
+  getEvents(): NormalizedEvent[] {
+    return [...this.events];
+  }
+
   processEvent(event: NormalizedEvent): { nodesAdded: number, edgesAdded: number } {
     let nodesAdded = 0;
     let edgesAdded = 0;
 
-    // Idempotency check: if we processed this exact event ID, skip or update?
-    // For this prototype, we'll assume append-only log but process logic handles updates
-    
     this.events.push(event);
 
-    // 1. Process Subject Node
     const subject = event.subject;
     if (!this.nodes.has(subject.id)) {
       this.nodes.set(subject.id, {
@@ -51,31 +42,25 @@ export class GraphEngine {
       nodesAdded++;
     } else {
       const node = this.nodes.get(subject.id)!;
-      // Update last_seen
       if (new Date(event.timestamp) > new Date(node.last_seen)) {
         node.last_seen = event.timestamp;
       }
-      // Update first_seen if earlier (unlikely in stream but possible in batch)
       if (new Date(event.timestamp) < new Date(node.first_seen)) {
         node.first_seen = event.timestamp;
       }
-      // Add provenance if new
       if (!node.provenance.includes(event.event_id)) {
         node.provenance.push(event.event_id);
       }
-      // Update risk score (simple max rule for now)
       node.risk_score = Math.max(node.risk_score, subject.risk_score);
-      node.lifecycle_state = subject.lifecycle_state; // State transitions?
+      node.lifecycle_state = subject.lifecycle_state;
     }
 
-    // 2. Process Relationships (Edges)
     for (const rel of event.relationships) {
-      // Ensure target node exists (implicit creation if missing details)
       if (!this.nodes.has(rel.target.id)) {
         this.nodes.set(rel.target.id, {
           id: rel.target.id,
-          type: rel.target.type as any, // Cast for now, would refine with more info
-          platform: "enterprise", // Default/Unknown
+          type: rel.target.type as any,
+          platform: "enterprise",
           lifecycle_state: "ACTIVE",
           risk_score: 0,
           first_seen: event.timestamp,
@@ -101,6 +86,9 @@ export class GraphEngine {
         if (new Date(event.timestamp) > new Date(edge.last_seen)) {
           edge.last_seen = event.timestamp;
         }
+        if (new Date(event.timestamp) < new Date(edge.first_seen)) {
+          edge.first_seen = event.timestamp;
+        }
         if (!edge.provenance.includes(event.event_id)) {
           edge.provenance.push(event.event_id);
         }
@@ -110,10 +98,26 @@ export class GraphEngine {
     return { nodesAdded, edgesAdded };
   }
 
-  getSnapshot(): GraphSnapshot {
-    // Deterministic ordering for stable hashing
-    const sortedNodes = Array.from(this.nodes.values()).sort((a, b) => a.id.localeCompare(b.id));
-    const sortedEdges = Array.from(this.edges.values()).sort((a, b) => 
+  getSnapshot(atTimestamp?: string): GraphSnapshot {
+    let filteredNodes: GraphNode[];
+    let filteredEdges: GraphEdge[];
+
+    if (atTimestamp) {
+      const t = new Date(atTimestamp).getTime();
+      filteredNodes = Array.from(this.nodes.values()).filter(n => {
+        return new Date(n.first_seen).getTime() <= t;
+      });
+      const nodeIds = new Set(filteredNodes.map(n => n.id));
+      filteredEdges = Array.from(this.edges.values()).filter(e => {
+        return new Date(e.first_seen).getTime() <= t && nodeIds.has(e.source) && nodeIds.has(e.target);
+      });
+    } else {
+      filteredNodes = Array.from(this.nodes.values());
+      filteredEdges = Array.from(this.edges.values());
+    }
+
+    const sortedNodes = filteredNodes.sort((a, b) => a.id.localeCompare(b.id));
+    const sortedEdges = filteredEdges.sort((a, b) => 
       (a.source + a.target + a.label).localeCompare(b.source + b.target + b.label)
     );
 
@@ -125,22 +129,17 @@ export class GraphEngine {
       nodes: sortedNodes,
       edges: sortedEdges,
       stats: {
-        node_count: this.nodes.size,
-        edge_count: this.edges.size,
+        node_count: sortedNodes.length,
+        edge_count: sortedEdges.length,
         event_count: this.events.length
       }
     };
   }
 
-  // === Analysis Functions ===
-
   findPaths(sourceId: string, targetId: string, maxHops: number = 5): any[] {
     const paths: any[] = [];
     const queue: { id: string, path: any[] }[] = [{ id: sourceId, path: [] }];
-    const visited = new Set<string>(); // Cycle detection per path? No, simpler BFS for now.
 
-    // Simple BFS for reachability
-    // Note: This is a basic implementation. For production, use specialized graph algos.
     while (queue.length > 0) {
       const { id, path } = queue.shift()!;
       
@@ -151,11 +150,10 @@ export class GraphEngine {
         continue;
       }
 
-      // Find outgoing edges
       for (const edge of Array.from(this.edges.values())) {
         if (edge.source === id) {
-          // Avoid cycles in current path
           if (path.some(p => p.source === edge.target)) continue;
+          if (id !== sourceId && path.some(p => p.target === edge.target)) continue;
 
           const newPath = [...path, {
             source: edge.source,
@@ -171,29 +169,82 @@ export class GraphEngine {
     return paths;
   }
 
+  calculateBlastRadius(sourceId: string, maxHops: number = 3): { id: string, distance: number, risk: number }[] {
+    const visited = new Map<string, { distance: number, risk: number }>();
+    const queue: { id: string, distance: number }[] = [{ id: sourceId, distance: 0 }];
+    visited.set(sourceId, { distance: 0, risk: this.nodes.get(sourceId)?.risk_score || 0 });
+
+    while (queue.length > 0) {
+      const { id, distance } = queue.shift()!;
+      if (distance >= maxHops) continue;
+
+      for (const edge of Array.from(this.edges.values())) {
+        if (edge.source === id && !visited.has(edge.target)) {
+          const targetNode = this.nodes.get(edge.target);
+          const risk = targetNode?.risk_score || 0;
+          visited.set(edge.target, { distance: distance + 1, risk });
+          queue.push({ id: edge.target, distance: distance + 1 });
+        }
+      }
+    }
+
+    visited.delete(sourceId);
+
+    return Array.from(visited.entries())
+      .map(([id, data]) => ({ id, distance: data.distance, risk: data.risk }))
+      .sort((a, b) => a.id.localeCompare(b.id));
+  }
+
   detectThreats(): any[] {
     const threats: any[] = [];
     
-    // Example Threat 1: IT to OT Bridge
-    // Look for paths from Platform=Enterprise/AWS -> Platform=OT
     for (const node of Array.from(this.nodes.values())) {
-        if (node.platform === 'ot') {
-            // Check incoming edges from non-OT
-            for (const edge of Array.from(this.edges.values())) {
-                if (edge.target === node.id) {
-                    const sourceNode = this.nodes.get(edge.source);
-                    if (sourceNode && sourceNode.platform !== 'ot') {
-                        threats.push({
-                            type: 'it-ot-bridge',
-                            severity: 'HIGH',
-                            description: `IT/Cloud node ${sourceNode.id} (${sourceNode.type}) accesses OT node ${node.id}`,
-                            involved_nodes: [sourceNode.id, node.id],
-                            evidence: edge.provenance
-                        });
-                    }
-                }
+      if (node.platform === 'ot') {
+        for (const edge of Array.from(this.edges.values())) {
+          if (edge.target === node.id) {
+            const sourceNode = this.nodes.get(edge.source);
+            if (sourceNode && sourceNode.platform !== 'ot') {
+              threats.push({
+                type: 'it-ot-bridge',
+                severity: 'HIGH',
+                description: `IT/Cloud node ${sourceNode.id} (${sourceNode.type}) accesses OT node ${node.id}`,
+                involved_nodes: [sourceNode.id, node.id],
+                evidence: edge.provenance
+              });
             }
+          }
         }
+      }
+    }
+
+    for (const node of Array.from(this.nodes.values())) {
+      if (node.type === 'SERVICE_ACCOUNT' && node.risk_score >= 50) {
+        const assumedRoles = Array.from(this.edges.values()).filter(e => e.source === node.id && e.label === 'ASSUMES');
+        if (assumedRoles.length >= 3) {
+          threats.push({
+            type: 'over-delegation',
+            severity: 'MEDIUM',
+            description: `Service account ${node.id} assumes ${assumedRoles.length} roles (excessive privilege)`,
+            involved_nodes: [node.id, ...assumedRoles.map(r => r.target)],
+            evidence: assumedRoles.flatMap(r => r.provenance)
+          });
+        }
+      }
+    }
+
+    for (const node of Array.from(this.nodes.values())) {
+      if ((node.type === 'SERVICE_ACCOUNT' || node.type === 'WORKLOAD') && node.lifecycle_state === 'DECOMMISSIONED') {
+        const recentEdges = Array.from(this.edges.values()).filter(e => e.source === node.id);
+        if (recentEdges.length > 0) {
+          threats.push({
+            type: 'dormant-reactivation',
+            severity: 'CRITICAL',
+            description: `Decommissioned identity ${node.id} still has ${recentEdges.length} active relationship(s)`,
+            involved_nodes: [node.id, ...recentEdges.map(e => e.target)],
+            evidence: recentEdges.flatMap(e => e.provenance)
+          });
+        }
+      }
     }
 
     return threats;

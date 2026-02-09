@@ -2,12 +2,10 @@ import { GraphEngine } from "./graph_engine";
 import { NormalizedEvent, GraphSnapshot } from "@shared/schema";
 
 export interface IStorage {
-  // Graph Operations
   injectEvent(event: NormalizedEvent): Promise<any>;
-  getGraphSnapshot(): Promise<GraphSnapshot>;
+  getGraphSnapshot(atTimestamp?: string): Promise<GraphSnapshot>;
   resetGraph(): Promise<void>;
-  
-  // Analysis
+  getEvents(): Promise<NormalizedEvent[]>;
   findReachability(source: string, target: string, k: number): Promise<any>;
   analyzeThreats(): Promise<any>;
   calculateBlastRadius(source: string, k: number): Promise<any>;
@@ -28,12 +26,16 @@ export class MemStorage implements IStorage {
     };
   }
 
-  async getGraphSnapshot(): Promise<GraphSnapshot> {
-    return this.engine.getSnapshot();
+  async getGraphSnapshot(atTimestamp?: string): Promise<GraphSnapshot> {
+    return this.engine.getSnapshot(atTimestamp);
   }
 
   async resetGraph(): Promise<void> {
     this.engine.reset();
+  }
+
+  async getEvents(): Promise<NormalizedEvent[]> {
+    return this.engine.getEvents();
   }
 
   async findReachability(source: string, target: string, k: number): Promise<any> {
@@ -49,10 +51,9 @@ export class MemStorage implements IStorage {
   }
 
   async calculateBlastRadius(source: string, k: number): Promise<any> {
-    // Re-use BFS logic effectively
-    // Simple mock/wrapper for now as engine.findPaths is target-specific
-    // But we can iterate.
-    return { reachable_nodes: [] }; // Placeholder for the prototype step
+    return {
+      reachable_nodes: this.engine.calculateBlastRadius(source, k)
+    };
   }
 }
 
