@@ -5,7 +5,7 @@ import { z } from "zod";
 // === DOMAIN MODELS (In-Memory Graph) ===
 
 // 1. Node Types
-export const NodeTypes = ["HUMAN", "WORKLOAD", "SERVICE_ACCOUNT", "PLC", "HMI"] as const;
+export const NodeTypes = ["HUMAN", "WORKLOAD", "SERVICE_ACCOUNT", "PLC", "HMI", "RESOURCE", "IDENTITY"] as const;
 export const NodePlatforms = ["enterprise", "aws", "ci_cd", "k8s", "ot"] as const;
 export const LifecycleStates = ["ACTIVE", "STALE", "DECOMMISSIONED"] as const;
 

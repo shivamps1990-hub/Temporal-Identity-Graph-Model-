@@ -108,7 +108,7 @@ export default function Dashboard() {
   const edgeLabels = snapshot?.edges ? Array.from(new Set(snapshot.edges.map(e => e.label))) : [];
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col min-h-full bg-background overflow-auto">
       <div className="p-6 pb-0 space-y-5">
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
@@ -285,8 +285,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 p-6 flex flex-col gap-4">
-        <div className="flex-1 min-h-0 rounded-md overflow-hidden border border-border bg-card">
+      <div className="flex-1 min-h-0 p-6 flex flex-col gap-4" style={{ minHeight: '500px' }}>
+        <div className="flex-1 rounded-md overflow-hidden border border-border bg-card" style={{ minHeight: '350px' }}>
           <GraphCanvas
             nodes={snapshot?.nodes || []}
             edges={snapshot?.edges || []}

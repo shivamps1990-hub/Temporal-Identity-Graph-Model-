@@ -1,7 +1,8 @@
-import { useEffect, useRef, useMemo, useState } from "react";
+import { useEffect, useRef, useMemo, useState, useCallback } from "react";
 import ForceGraph2D, { type ForceGraphMethods } from "react-force-graph-2d";
 import { type GraphNode, type GraphEdge } from "@shared/schema";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Maximize2, Loader2 } from "lucide-react";
 
 interface PathSegment {
@@ -37,7 +38,7 @@ const NODE_COLORS: Record<string, string> = {
   IDENTITY: "#6B7280",
 };
 
-const NODE_VAL: Record<string, number> = {
+const NODE_SIZES: Record<string, number> = {
   HUMAN: 5,
   WORKLOAD: 4,
   SERVICE_ACCOUNT: 4,
@@ -47,12 +48,44 @@ const NODE_VAL: Record<string, number> = {
 
 const BLAST_RING_COLORS = ['#3B82F6', '#7C3AED', '#DC2626', '#EA580C', '#059669', '#D97706'];
 
-export function GraphCanvas({ nodes, edges, onNodeClick, isLoading, highlightedPath, highlightedBlast, currentTime, replaySpeed = 1, showDebugOverlay = false }: GraphCanvasProps) {
+const APPEAR_DURATION_MS = 600;
+const DISAPPEAR_DURATION_MS = 400;
+
+interface AnimState {
+  opacity: number;
+  scale: number;
+  glowRadius: number;
+  phase: 'hidden' | 'appearing' | 'visible' | 'disappearing';
+  phaseStartTime: number;
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+export function GraphCanvas({
+  nodes,
+  edges,
+  onNodeClick,
+  isLoading,
+  highlightedPath,
+  highlightedBlast,
+  currentTime,
+  replaySpeed = 1,
+  showDebugOverlay = false,
+}: GraphCanvasProps) {
   const graphRef = useRef<ForceGraphMethods>();
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 500 });
-  const prevVisibleRef = useRef<{ nodes: Set<string>; edges: Set<string> }>({ nodes: new Set(), edges: new Set() });
-  const opacityMapRef = useRef<Map<string, number>>(new Map());
+
+  const nodeAnimRef = useRef<Map<string, AnimState>>(new Map());
+  const edgeAnimRef = useRef<Map<string, AnimState>>(new Map());
+  const animFrameRef = useRef<number>(0);
+  const lastFrameTimeRef = useRef<number>(0);
+  const isReplayingRef = useRef(false);
 
   const pathNodeSet = useMemo(() => {
     if (!highlightedPath) return new Set<string>();
@@ -81,133 +114,238 @@ export function GraphCanvas({ nodes, edges, onNodeClick, isLoading, highlightedP
 
   const hasHighlight = !!highlightedPath || !!highlightedBlast;
 
-  const { visibleNodes, visibleEdges } = useMemo(() => {
-    if (!currentTime) {
-      return {
-        visibleNodes: new Set(nodes.map(n => n.id)),
-        visibleEdges: new Set(edges.map(e => `${e.source}|${e.target}|${e.label}`))
-      };
-    }
-
+  const visibleNodeIds = useMemo(() => {
+    if (!currentTime) return new Set(nodes.map(n => n.id));
     const t = new Date(currentTime).getTime();
-    const vNodes = new Set<string>();
-    const vEdges = new Set<string>();
-
+    const result = new Set<string>();
     for (const node of nodes) {
-      const fs = new Date(node.first_seen).getTime();
-      const ls = new Date(node.last_seen).getTime();
-      if (fs <= t && t <= ls) {
-        vNodes.add(node.id);
+      if (new Date(node.first_seen).getTime() <= t && t <= new Date(node.last_seen).getTime()) {
+        result.add(node.id);
       }
     }
+    return result;
+  }, [nodes, currentTime]);
 
+  const visibleEdgeKeys = useMemo(() => {
+    if (!currentTime) return new Set(edges.map(e => `${e.source}|${e.target}|${e.label}`));
+    const t = new Date(currentTime).getTime();
+    const result = new Set<string>();
     for (const edge of edges) {
-      const fs = new Date(edge.first_seen).getTime();
-      const ls = new Date(edge.last_seen).getTime();
-      if (fs <= t && t <= ls && vNodes.has(edge.source) && vNodes.has(edge.target)) {
-        vEdges.add(`${edge.source}|${edge.target}|${edge.label}`);
+      if (
+        new Date(edge.first_seen).getTime() <= t &&
+        t <= new Date(edge.last_seen).getTime() &&
+        visibleNodeIds.has(edge.source) &&
+        visibleNodeIds.has(edge.target)
+      ) {
+        result.add(`${edge.source}|${edge.target}|${edge.label}`);
       }
     }
-
-    return { visibleNodes: vNodes, visibleEdges: vEdges };
-  }, [nodes, edges, currentTime]);
+    return result;
+  }, [edges, currentTime, visibleNodeIds]);
 
   useEffect(() => {
-    const prev = prevVisibleRef.current;
-    const om = opacityMapRef.current;
+    isReplayingRef.current = !!currentTime;
+    const now = performance.now();
+    const nam = nodeAnimRef.current;
 
-    Array.from(visibleNodes).forEach(nodeId => {
-      if (!prev.nodes.has(nodeId)) {
-        om.set(`node:${nodeId}`, 0.3);
+    for (const node of nodes) {
+      const shouldBeVisible = visibleNodeIds.has(node.id);
+      const anim = nam.get(node.id);
+
+      if (!anim) {
+        nam.set(node.id, {
+          opacity: shouldBeVisible ? 1 : 0,
+          scale: shouldBeVisible ? 1 : 0,
+          glowRadius: 0,
+          phase: shouldBeVisible ? 'visible' : 'hidden',
+          phaseStartTime: now,
+        });
+        continue;
+      }
+
+      if (shouldBeVisible && (anim.phase === 'hidden' || anim.phase === 'disappearing')) {
+        anim.phase = 'appearing';
+        anim.phaseStartTime = now;
+        anim.glowRadius = 20;
+      } else if (!shouldBeVisible && (anim.phase === 'visible' || anim.phase === 'appearing')) {
+        anim.phase = 'disappearing';
+        anim.phaseStartTime = now;
+      }
+    }
+
+    const eam = edgeAnimRef.current;
+    for (const edge of edges) {
+      const key = `${edge.source}|${edge.target}|${edge.label}`;
+      const shouldBeVisible = visibleEdgeKeys.has(key);
+      const anim = eam.get(key);
+
+      if (!anim) {
+        eam.set(key, {
+          opacity: shouldBeVisible ? 1 : 0,
+          scale: 1,
+          glowRadius: 0,
+          phase: shouldBeVisible ? 'visible' : 'hidden',
+          phaseStartTime: now,
+        });
+        continue;
+      }
+
+      if (shouldBeVisible && (anim.phase === 'hidden' || anim.phase === 'disappearing')) {
+        anim.phase = 'appearing';
+        anim.phaseStartTime = now;
+      } else if (!shouldBeVisible && (anim.phase === 'visible' || anim.phase === 'appearing')) {
+        anim.phase = 'disappearing';
+        anim.phaseStartTime = now;
+      }
+    }
+  }, [visibleNodeIds, visibleEdgeKeys, nodes, edges, currentTime]);
+
+  const tickAnimations = useCallback((now: number) => {
+    const speedFactor = Math.max(replaySpeed, 0.5);
+    const nam = nodeAnimRef.current;
+
+    nam.forEach((anim) => {
+      const elapsed = (now - anim.phaseStartTime) * speedFactor;
+
+      if (anim.phase === 'appearing') {
+        const t = Math.min(elapsed / APPEAR_DURATION_MS, 1);
+        const eased = 1 - Math.pow(1 - t, 3);
+        anim.opacity = eased;
+        anim.scale = 0.3 + 0.7 * eased;
+        anim.glowRadius = 20 * (1 - eased);
+        if (t >= 1) {
+          anim.phase = 'visible';
+          anim.opacity = 1;
+          anim.scale = 1;
+          anim.glowRadius = 0;
+        }
+      } else if (anim.phase === 'disappearing') {
+        const t = Math.min(elapsed / DISAPPEAR_DURATION_MS, 1);
+        const eased = 1 - Math.pow(1 - t, 2);
+        anim.opacity = 1 - eased;
+        anim.scale = 1 - 0.3 * eased;
+        if (t >= 1) {
+          anim.phase = 'hidden';
+          anim.opacity = 0;
+          anim.scale = 0;
+        }
       }
     });
 
-    Array.from(prev.nodes).forEach(nodeId => {
-      if (!visibleNodes.has(nodeId)) {
-        om.set(`node:${nodeId}`, 0.1);
+    const eam = edgeAnimRef.current;
+    eam.forEach((anim) => {
+      const elapsed = (now - anim.phaseStartTime) * speedFactor;
+
+      if (anim.phase === 'appearing') {
+        const t = Math.min(elapsed / (APPEAR_DURATION_MS * 0.8), 1);
+        anim.opacity = t;
+        if (t >= 1) {
+          anim.phase = 'visible';
+          anim.opacity = 1;
+        }
+      } else if (anim.phase === 'disappearing') {
+        const t = Math.min(elapsed / (DISAPPEAR_DURATION_MS * 0.6), 1);
+        anim.opacity = 1 - t;
+        if (t >= 1) {
+          anim.phase = 'hidden';
+          anim.opacity = 0;
+        }
       }
     });
+  }, [replaySpeed]);
 
-    prevVisibleRef.current = { nodes: new Set(visibleNodes), edges: new Set(visibleEdges) };
-  }, [visibleNodes, visibleEdges]);
+  useEffect(() => {
+    let running = true;
+
+    const loop = (now: number) => {
+      if (!running) return;
+      if (now - lastFrameTimeRef.current > 16) {
+        tickAnimations(now);
+        lastFrameTimeRef.current = now;
+      }
+      animFrameRef.current = requestAnimationFrame(loop);
+    };
+
+    animFrameRef.current = requestAnimationFrame(loop);
+    return () => {
+      running = false;
+      cancelAnimationFrame(animFrameRef.current);
+    };
+  }, [tickAnimations]);
 
   const graphData = useMemo(() => {
     return {
-      nodes: nodes.map(n => ({ ...n, id: n.id, group: n.type, val: NODE_VAL[n.type] || 3 })),
-      links: edges.map(e => ({ ...e, source: e.source, target: e.target }))
+      nodes: nodes.map(n => ({ ...n, id: n.id, group: n.type, val: NODE_SIZES[n.type] || 3 })),
+      links: edges.map(e => ({ ...e, source: e.source, target: e.target })),
     };
   }, [nodes, edges]);
 
   useEffect(() => {
-    function handleResize() {
+    const el = containerRef.current;
+    if (!el) return;
+
+    function updateDimensions() {
       if (containerRef.current) {
-        setDimensions({
-          width: containerRef.current.offsetWidth,
-          height: containerRef.current.offsetHeight
-        });
+        const w = containerRef.current.offsetWidth;
+        const h = containerRef.current.offsetHeight;
+        if (w > 0 && h > 0) {
+          setDimensions({ width: w, height: h });
+        }
       }
     }
-    window.addEventListener('resize', handleResize);
-    handleResize();
-    return () => window.removeEventListener('resize', handleResize);
+
+    updateDimensions();
+
+    const ro = new ResizeObserver(() => updateDimensions());
+    ro.observe(el);
+    window.addEventListener('resize', updateDimensions);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', updateDimensions);
+    };
   }, []);
 
-  const getNodeOpacity = (node: any): number => {
-    if (currentTime) {
-      const isVisible = visibleNodes.has(node.id);
-      const om = opacityMapRef.current;
-      const key = `node:${node.id}`;
-      const prevOpacity = om.get(key);
-
-      if (isVisible) {
-        const targetOpacity = 1;
-        const current = prevOpacity !== undefined ? prevOpacity : 0;
-        const lerpFactor = Math.min(0.15 + replaySpeed * 0.08, 0.6);
-        const lerped = current + (targetOpacity - current) * lerpFactor;
-        om.set(key, lerped);
-
-        if (highlightedPath) {
-          return pathNodeSet.has(node.id) ? lerped : lerped * 0.12;
-        }
-        if (highlightedBlast) {
-          return blastNodeMap.has(node.id) ? lerped : lerped * 0.12;
-        }
-        return lerped;
-      } else {
-        const targetOpacity = 0;
-        const current = prevOpacity !== undefined ? prevOpacity : 0;
-        const fadeOutFactor = Math.min(0.1 + replaySpeed * 0.06, 0.5);
-        const lerped = current + (targetOpacity - current) * fadeOutFactor;
-        om.set(key, lerped);
-        return lerped;
-      }
-    }
-
-    if (highlightedPath) {
-      return pathNodeSet.has(node.id) ? 1 : 0.12;
-    }
-    if (highlightedBlast) {
-      return blastNodeMap.has(node.id) ? 1 : 0.12;
-    }
-    return 1;
+  const getNodeAnim = (nodeId: string): AnimState => {
+    return nodeAnimRef.current.get(nodeId) || {
+      opacity: 1, scale: 1, glowRadius: 0, phase: 'visible' as const, phaseStartTime: 0,
+    };
   };
 
-  const getEdgeOpacity = (edgeKey: string): number => {
-    if (currentTime) {
-      const parts = edgeKey.split("|");
-      const fullKey = parts.length >= 3 ? edgeKey : undefined;
-      if (!fullKey) return 0;
-      return visibleEdges.has(fullKey) ? 1 : 0;
+  const getEdgeAnim = (edgeKey: string, srcId: string, tgtId: string): AnimState => {
+    let anim = edgeAnimRef.current.get(edgeKey);
+    if (anim) return anim;
+    const prefix = `${srcId}|${tgtId}|`;
+    const entries = Array.from(edgeAnimRef.current.entries());
+    for (let i = 0; i < entries.length; i++) {
+      if (entries[i][0].startsWith(prefix)) return entries[i][1];
     }
-    return 1;
+    return { opacity: 1, scale: 1, glowRadius: 0, phase: 'visible' as const, phaseStartTime: 0 };
   };
 
-  const nodeCanvasObject = (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-    const opacity = getNodeOpacity(node);
-    if (opacity <= 0.01) return;
+  const nodeCanvasObject = useCallback((node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
+    const anim = getNodeAnim(node.id);
 
+    if (!currentTime) {
+      let finalOpacity = 1;
+      if (highlightedPath) finalOpacity = pathNodeSet.has(node.id) ? 1 : 0.1;
+      else if (highlightedBlast) finalOpacity = blastNodeMap.has(node.id) ? 1 : 0.1;
+      drawNode(node, ctx, globalScale, finalOpacity, 1, 0);
+      return;
+    }
+
+    if (anim.opacity <= 0.01) return;
+
+    let finalOpacity = anim.opacity;
+    if (highlightedPath) finalOpacity *= pathNodeSet.has(node.id) ? 1 : 0.1;
+    else if (highlightedBlast) finalOpacity *= blastNodeMap.has(node.id) ? 1 : 0.1;
+
+    drawNode(node, ctx, globalScale, finalOpacity, anim.scale, anim.glowRadius);
+  }, [currentTime, highlightedPath, highlightedBlast, pathNodeSet, blastNodeMap]);
+
+  const drawNode = (node: any, ctx: CanvasRenderingContext2D, globalScale: number, opacity: number, scale: number, glowRadius: number) => {
     const color = NODE_COLORS[node.type] || "#9CA3AF";
-    let size = (NODE_VAL[node.type] || 3) * 1.5;
+    let baseSize = (NODE_SIZES[node.type] || 3) * 1.5;
     const x = node.x || 0;
     const y = node.y || 0;
 
@@ -215,26 +353,32 @@ export function GraphCanvas({ nodes, edges, onNodeClick, isLoading, highlightedP
     const blastDist = blastNodeMap.get(node.id);
     const isBlastSource = highlightedBlast?.source === node.id;
 
-    if (isPathNode) size *= 1.3;
-    if (isBlastSource) size *= 1.5;
+    if (isPathNode) baseSize *= 1.3;
+    if (isBlastSource) baseSize *= 1.5;
 
-    if (currentTime && visibleNodes.has(node.id)) {
-      const om = opacityMapRef.current;
-      const prevVal = om.get(`node:${node.id}`) || 0;
-      if (prevVal < 0.9) {
-        const scaleFactor = 0.9 + prevVal * 0.1;
-        size *= scaleFactor;
-      }
-    }
+    const size = baseSize * scale;
 
+    ctx.save();
     ctx.globalAlpha = opacity;
+
+    if (glowRadius > 1) {
+      ctx.beginPath();
+      ctx.arc(x, y, size + glowRadius, 0, 2 * Math.PI);
+      ctx.fillStyle = hexToRgba(color, 0.15 * (glowRadius / 20));
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(x, y, size + glowRadius * 0.6, 0, 2 * Math.PI);
+      ctx.fillStyle = hexToRgba(color, 0.25 * (glowRadius / 20));
+      ctx.fill();
+    }
 
     if (isBlastSource) {
       ctx.beginPath();
       ctx.arc(x, y, size + 8, 0, 2 * Math.PI);
-      ctx.fillStyle = BLAST_RING_COLORS[0] + '15';
+      ctx.fillStyle = hexToRgba(BLAST_RING_COLORS[0], 0.08);
       ctx.fill();
-      ctx.strokeStyle = BLAST_RING_COLORS[0] + '40';
+      ctx.strokeStyle = hexToRgba(BLAST_RING_COLORS[0], 0.25);
       ctx.lineWidth = 1;
       ctx.stroke();
     }
@@ -243,7 +387,7 @@ export function GraphCanvas({ nodes, edges, onNodeClick, isLoading, highlightedP
       const ringColor = BLAST_RING_COLORS[Math.min(blastDist - 1, BLAST_RING_COLORS.length - 1)];
       ctx.beginPath();
       ctx.arc(x, y, size + 4, 0, 2 * Math.PI);
-      ctx.strokeStyle = ringColor + '60';
+      ctx.strokeStyle = hexToRgba(ringColor, 0.4);
       ctx.lineWidth = 2;
       ctx.stroke();
     }
@@ -260,7 +404,6 @@ export function GraphCanvas({ nodes, edges, onNodeClick, isLoading, highlightedP
     } else {
       ctx.arc(x, y, size, 0, 2 * Math.PI);
     }
-
     ctx.fillStyle = color;
     ctx.fill();
 
@@ -273,7 +416,7 @@ export function GraphCanvas({ nodes, edges, onNodeClick, isLoading, highlightedP
       ctx.lineWidth = 2;
       ctx.stroke();
     } else {
-      ctx.strokeStyle = color + "44";
+      ctx.strokeStyle = hexToRgba(color, 0.25);
       ctx.lineWidth = 1;
       ctx.stroke();
     }
@@ -294,68 +437,72 @@ export function GraphCanvas({ nodes, edges, onNodeClick, isLoading, highlightedP
       ctx.fillText(blastDist === 0 ? 'SRC' : `+${blastDist}`, x, y - size - 2);
     }
 
-    ctx.globalAlpha = 1;
+    ctx.restore();
   };
 
-  const linkCanvasObject = (link: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
+  const linkCanvasObject = useCallback((link: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
     const start = link.source;
     const end = link.target;
     if (!start || !end || typeof start.x !== 'number') return;
 
     const srcId = typeof start === 'object' ? start.id : start;
     const tgtId = typeof end === 'object' ? end.id : end;
-    const edgeKey = `${srcId}|${tgtId}`;
     const label = link.label || '';
-    const fullEdgeKey = `${srcId}|${tgtId}|${label}`;
-    const isPathEdge = pathEdgeSet.has(edgeKey);
+    const edgeKey = `${srcId}|${tgtId}|${label}`;
+    const isPathEdge = pathEdgeSet.has(`${srcId}|${tgtId}`);
+
+    let baseAlpha = 1;
 
     if (currentTime) {
-      let edgeVisible = visibleEdges.has(fullEdgeKey);
-      if (!edgeVisible && label === '') {
-        const prefix = `${srcId}|${tgtId}|`;
-        edgeVisible = Array.from(visibleEdges).some(k => k.startsWith(prefix));
-      }
-      if (!edgeVisible) return;
+      const anim = getEdgeAnim(edgeKey, srcId, tgtId);
+      if (anim.opacity <= 0.01) return;
+      baseAlpha = anim.opacity;
     }
 
-    let alpha = 1;
     if (hasHighlight && !isPathEdge) {
       if (highlightedBlast) {
-        alpha = (blastNodeMap.has(srcId) && blastNodeMap.has(tgtId)) ? 0.6 : 0.08;
+        baseAlpha *= (blastNodeMap.has(srcId) && blastNodeMap.has(tgtId)) ? 0.6 : 0.06;
       } else {
-        alpha = 0.08;
+        baseAlpha *= 0.06;
       }
     }
 
-    ctx.globalAlpha = alpha;
+    ctx.save();
+    ctx.globalAlpha = baseAlpha;
+
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const angle = Math.atan2(dy, dx);
+
+    const nodeSize = (NODE_SIZES[end.type] || 3) * 1.5;
+    const endX = end.x - Math.cos(angle) * nodeSize;
+    const endY = end.y - Math.sin(angle) * nodeSize;
 
     ctx.beginPath();
     ctx.moveTo(start.x, start.y);
-    ctx.lineTo(end.x, end.y);
+    ctx.lineTo(endX, endY);
 
     if (isPathEdge) {
       ctx.strokeStyle = '#2563EB';
       ctx.lineWidth = 3;
-      ctx.setLineDash([]);
     } else {
-      ctx.strokeStyle = '#CBD5E1';
+      ctx.strokeStyle = '#94A3B8';
       ctx.lineWidth = 1;
     }
     ctx.stroke();
 
-    const angle = Math.atan2(end.y - start.y, end.x - start.x);
     const arrowLen = isPathEdge ? 8 : 5;
     ctx.beginPath();
-    ctx.moveTo(end.x, end.y);
-    ctx.lineTo(end.x - arrowLen * Math.cos(angle - Math.PI / 6), end.y - arrowLen * Math.sin(angle - Math.PI / 6));
-    ctx.lineTo(end.x - arrowLen * Math.cos(angle + Math.PI / 6), end.y - arrowLen * Math.sin(angle + Math.PI / 6));
+    ctx.moveTo(endX, endY);
+    ctx.lineTo(endX - arrowLen * Math.cos(angle - Math.PI / 6), endY - arrowLen * Math.sin(angle - Math.PI / 6));
+    ctx.lineTo(endX - arrowLen * Math.cos(angle + Math.PI / 6), endY - arrowLen * Math.sin(angle + Math.PI / 6));
     ctx.closePath();
     ctx.fillStyle = isPathEdge ? '#2563EB' : '#94A3B8';
     ctx.fill();
 
     if (globalScale > 1.2 || isPathEdge) {
-      const midX = (start.x + end.x) / 2;
-      const midY = (start.y + end.y) / 2;
+      const midX = (start.x + endX) / 2;
+      const midY = (start.y + endY) / 2;
       const labelSize = isPathEdge ? Math.max(9 / globalScale, 3.5) : Math.max(7 / globalScale, 2.5);
       ctx.font = `${isPathEdge ? 'bold ' : ''}${labelSize}px 'IBM Plex Mono', monospace`;
       ctx.textAlign = 'center';
@@ -364,12 +511,20 @@ export function GraphCanvas({ nodes, edges, onNodeClick, isLoading, highlightedP
       ctx.fillText(label, midX, midY - 4);
     }
 
-    ctx.globalAlpha = 1;
-  };
+    ctx.restore();
+  }, [currentTime, hasHighlight, highlightedBlast, pathEdgeSet, blastNodeMap]);
 
-  const visibleNodeCount = visibleNodes.size;
-  const visibleEdgeCount = visibleEdges.size;
+  const visibleNodeCount = visibleNodeIds.size;
+  const visibleEdgeCount = visibleEdgeKeys.size;
   const activePathCount = highlightedPath ? highlightedPath.length : 0;
+
+  const animatingCount = useMemo(() => {
+    let count = 0;
+    nodeAnimRef.current.forEach(a => {
+      if (a.phase === 'appearing' || a.phase === 'disappearing') count++;
+    });
+    return count;
+  }, [visibleNodeIds]);
 
   return (
     <div className="relative w-full h-full bg-grid-pattern" ref={containerRef} data-testid="graph-canvas">
@@ -420,6 +575,14 @@ export function GraphCanvas({ nodes, edges, onNodeClick, isLoading, highlightedP
         </div>
       </div>
 
+      {currentTime && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
+          <Badge variant="outline" className="font-mono text-xs bg-card/90 backdrop-blur shadow-sm border-primary/40 text-primary px-3 py-1" data-testid="badge-replay-time">
+            REPLAY {currentTime.substring(11, 19)}
+          </Badge>
+        </div>
+      )}
+
       <ForceGraph2D
         ref={graphRef}
         width={dimensions.width}
@@ -449,9 +612,13 @@ export function GraphCanvas({ nodes, edges, onNodeClick, isLoading, highlightedP
 
       <div className="absolute bottom-3 right-3 z-10 bg-card/90 backdrop-blur border border-border rounded-md px-2.5 py-1.5 shadow-sm">
         <div className="text-[10px] font-mono text-muted-foreground space-y-0.5">
-          <div>Nodes: {nodes.length}</div>
-          <div>Edges: {edges.length}</div>
-          {currentTime && <div>T: {currentTime.substring(11, 19)}</div>}
+          <div data-testid="text-total-nodes">Nodes: {nodes.length}</div>
+          <div data-testid="text-total-edges">Edges: {edges.length}</div>
+          {currentTime && (
+            <div className="text-primary font-medium" data-testid="text-visible-count">
+              Visible: {visibleNodeCount}N / {visibleEdgeCount}E
+            </div>
+          )}
         </div>
       </div>
 
@@ -460,8 +627,9 @@ export function GraphCanvas({ nodes, edges, onNodeClick, isLoading, highlightedP
           <div className="text-[10px] font-mono text-muted-foreground space-y-0.5">
             <div className="text-[9px] uppercase tracking-wider font-medium text-primary mb-1">Debug</div>
             <div>Replay Time: {currentTime || "LIVE"}</div>
-            <div>Visible Nodes: {visibleNodeCount}</div>
-            <div>Visible Edges: {visibleEdgeCount}</div>
+            <div>Visible Nodes: {visibleNodeCount} / {nodes.length}</div>
+            <div>Visible Edges: {visibleEdgeCount} / {edges.length}</div>
+            <div>Animating: {animatingCount}</div>
             <div>Active Paths: {activePathCount}</div>
             <div>Replay Speed: {replaySpeed}x</div>
           </div>
