@@ -1,0 +1,84 @@
+About the Author and Research Context
+Author Photo
+
+Photo not provided
+
+Shivam Pratap Singh
+Shivam Pratap Singh is an Identity and Access Management (IAM) practitioner with more than a decade of experience designing, implementing, and operating IAM and access governance solutions in large enterprise environments.
+
+His professional background includes hands-on responsibility for IAM governance frameworks, access control operations, audit and compliance activities, security incident investigation, and the delivery of identity platforms across cloud, on-prem, and hybrid environments.
+
+This application and the associated research prototype are the result of practical observations made while operating IAM systems under real-world constraints, audits, and incident scenarios.
+
+LinkedIn Profile
+Professional Background (Summary)
+The author's professional experience encompasses the following areas:
+
+IAM governance and access control frameworks
+Recertification, reconciliation, and audit readiness
+Incident investigation related to access control violations
+Conditional Access and risk-based access controls
+SCIM provisioning and enterprise application onboarding
+Integration of SAP, OpenLDAP, Keycloak, OID, Azure AD / Entra ID
+Team leadership (10–15 IAM/WAM engineers)
+Stakeholder coordination, reporting, and delivery management
+Research Motivation
+Traditional identity and access management tools primarily answer the question:“Who has access right now?” but fail to capture the historical context that matters for security.
+
+Real incidents exploit historical or transient identity paths that may not be visible in current permission snapshots. Attackers leverage expired credentials, revoked trust relationships, and temporary access grants that were never properly decommissioned.
+
+Non-human identities (tokens, service accounts, certificates, OT identities) require different modeling approaches because they operate at different time scales, have different lifecycle patterns, and are often managed outside traditional IAM systems.
+
+This research explores a temporal, graph-based approach to identity analysis where time is treated as a first-class dimension and identity relationships are modeled deterministically.
+
+Research Overview
+This research introduces a temporal graph-based model for non-human identity security. The core insight is that security risk emerges from time-dependent paths of identity relationships, not from individual permissions.
+
+Key Concepts
+Temporal Identity Graph: Identities and relationships modeled with explicit time bounds
+Path-Based Risk: Risk computed from identity paths, not static permissions
+Point-in-Time Analysis: Reconstruct identity state at any historical moment
+Unified Model: IT, cloud, CI/CD, and OT identities in a single framework
+Core Insight
+Identity security is not about who has permission.
+It is about what paths exist, when they exist, and what they can reach.
+
+Explore the Interactive Dashboard →
+Research Contribution
+This research prototype makes the following contributions:
+
+Temporal Identity Graph model: A graph-based representation of identities and relationships with explicit temporal bounds (valid_from, valid_to) that captures how access evolves over time.
+Event-sourced, replayable identity analysis: An append-only event store that enables deterministic reconstruction of identity state at any point in time.
+Deterministic risk annotation: Risk annotations that are computed from explicit rules and do not mutate the underlying graph.
+Policy evaluation with explicit evidence: An OPA-like policy engine that provides explanations for access decisions with traceable evidence paths.
+Focus on explainability over prediction: The system prioritizes understanding why access was granted rather than predicting future behavior.
+This research prototype is not production-ready and does not provide defensive guarantees. It is intended for research, education, and analytical experimentation only.
+
+Use of Artificial Intelligence
+AI-assisted tools were used for:
+
+Code scaffolding and boilerplate generation
+UI layout and component design assistance
+Documentation drafting and structure
+AI is NOT used for:
+
+Security decision-making
+Risk scoring or prioritization
+Threat prediction
+Policy enforcement
+All security logic in this system is rule-based, deterministic, and fully auditable.
+
+Ethics and Responsible Use
+No real credentials or production systems are used
+All datasets are synthetic or consent-based
+No exploitation techniques are operationalized
+The system is intended for research, education, and analytical experimentation only
+References and Attribution
+This research acknowledges conceptual influences from the following areas:
+
+Temporal graph theory and time-varying networks
+Event-sourced system design and CQRS patterns
+Formal access control models (RBAC, ABAC)
+Identity governance and audit practices
+Public research on identity-based attacks and lateral movement
+This page is part of a research prototype and does not represent a commercial product.
