@@ -43,7 +43,8 @@ export async function registerRoutes(
 
       // If scenario provided, generate it
       if (scenario) {
-        const generatedEvents = generateScenario(scenario);
+        const seed = req.body.seed || 42;
+        const generatedEvents = generateScenario(scenario, seed);
         eventsToProcess = [...eventsToProcess, ...generatedEvents];
       }
 

@@ -1,0 +1,353 @@
+Goal: Get a reproducible, Apache-2.0-ready research demo running, explainable, and shareable.
+
+PHASE 0 — Pre-flight (5 minutes)
+Step 0.1 — Create the Repl
+
+Go to Replit → Create Repl
+
+Template: Python
+
+Name: temporal-identity-graph-research
+
+Visibility: Public (or Private until stable)
+
+Why Python:
+
+FastAPI runs cleanly
+
+Determinism + replay easier
+
+Less memory overhead
+
+Step 0.2 — Verify environment
+
+Open Replit shell and run:
+
+python --version
+node --version
+
+
+You want:
+
+Python ≥ 3.10
+
+Node ≥ 18
+
+If Node isn’t present, add it via Replit packages (for frontend later).
+
+PHASE 1 — Repository Skeleton (15 minutes)
+Step 1.1 — Create folder structure
+
+In Replit Files pane, create:
+
+backend/
+frontend/
+examples/
+docs/
+scripts/
+
+
+Inside backend/:
+
+backend/app/
+backend/app/api/
+backend/app/model/
+backend/app/tests/
+
+Step 1.2 — Add licensing first (important)
+
+Create these files at root:
+
+LICENSE → paste Apache-2.0 full text
+
+NOTICE
+
+CONTRIBUTING.md
+
+CLA.md
+
+(Use the exact contents already generated earlier.)
+
+Commit mental note: License first = clean open-source lineage
+
+PHASE 2 — Backend Core (FastAPI + Graph) (30–40 minutes)
+Step 2.1 — Install backend dependencies
+
+Create backend/requirements.txt:
+
+fastapi
+uvicorn
+pydantic
+networkx
+pytest
+python-dateutil
+
+
+Install:
+
+pip install -r backend/requirements.txt
+
+Step 2.2 — Implement graph engine
+
+Create:
+
+backend/app/model/graph_engine.py
+
+
+Implement:
+
+in-memory graph
+
+nodes + edges with:
+
+first_seen
+
+last_seen
+
+deterministic update function U(G, event)
+
+provenance (event_id → node/edge)
+
+Rule:
+No deletes.
+Only create or extend time windows.
+
+Step 2.3 — Normalized event schema
+
+Create:
+
+backend/app/model/types.py
+
+
+Add Pydantic models for:
+
+Identity
+
+Relationship
+
+NormalizedEvent
+
+Strict validation only.
+
+Step 2.4 — FastAPI app
+
+Create:
+
+backend/app/main.py
+
+
+Include:
+
+app startup
+
+global graph state
+
+include routers
+
+Add routers:
+
+api/ingest.py
+
+api/replay.py
+
+api/analysis.py
+
+PHASE 3 — Dataset Generator (Critical) (20 minutes)
+Step 3.1 — Add generator
+
+Create:
+
+backend/app/model/dataset_gen.py
+
+
+Must support:
+
+deterministic seed
+
+multiple scenarios
+
+NDJSON output
+
+correlation IDs
+
+large file streaming
+
+Test quickly:
+
+python backend/app/model/dataset_gen.py \
+  --seed 42 \
+  --scenario cicd_compromise \
+  --days 1 \
+  --out examples/cicd.ndjson
+
+Step 3.2 — Replay logic
+
+Add endpoint:
+
+POST /events/replay
+
+
+Replay flow:
+
+Read NDJSON
+
+Sort by timestamp
+
+Apply U(G, e)
+
+Serialize graph canonically
+
+Compute SHA256 → graph_hash
+
+This hash is your reproducibility proof.
+
+PHASE 4 — Determinism Tests (15 minutes)
+Step 4.1 — Tests
+
+Create tests:
+
+backend/app/tests/test_replay.py
+
+
+Assertions:
+
+replay same file twice → same hash
+
+replay shuffled events → same hash
+
+Run:
+
+pytest backend/app/tests
+
+
+Do not proceed until tests pass.
+
+PHASE 5 — Frontend (Minimal but Interactive) (30 minutes)
+Step 5.1 — Create frontend
+
+In Replit → Add NodeJS environment
+Inside frontend/:
+
+npm create vite@latest
+
+
+Choose:
+
+React
+
+JavaScript (not TS for speed)
+
+Install deps:
+
+npm install
+npm install axios vis-network
+
+Step 5.2 — Pages to implement
+
+Minimal pages:
+
+Dashboard – graph view
+
+Data & Replay – upload / generate / replay
+
+Research – explanation content
+
+Use simple routing.
+
+Step 5.3 — Graph view
+
+Fetch /graph/snapshot?timestamp=T
+
+Render nodes/edges
+
+Highlight path results from /analysis/reachability
+
+No fancy styling needed.
+
+PHASE 6 — Research Content Injection (15 minutes)
+Step 6.1 — Paste research content
+
+Use the Replit content update prompt you already have.
+
+Add collapsible sections:
+
+Problem
+
+Model
+
+Math
+
+Story example
+
+Claims / Non-claims
+
+This is what reviewers read first.
+
+PHASE 7 — Replay + Visual Correlation (20 minutes)
+Step 7.1 — Correlation timeline
+
+When a path is selected:
+
+list events in order
+
+show timestamps
+
+show identity lifetimes
+
+This makes the “temporal” part obvious.
+
+PHASE 8 — Runbook & Docs (10 minutes)
+
+Create:
+
+docs/runbook.md
+
+docs/design.md
+
+Include:
+
+how to generate data
+
+how to replay
+
+how to reproduce hashes
+
+limitations
+
+PHASE 9 — Final Verification (10 minutes)
+
+Run full flow:
+
+python backend/app/model/dataset_gen.py --seed 42 --scenario cicd_compromise --days 1 --out examples/scenarios/cicd.ndjson
+curl -X POST localhost:8000/events/replay -F file=@examples/scenarios/cicd.ndjson
+
+
+Confirm:
+
+graph renders
+
+path visible
+
+hash stable
+
+PHASE 10 — Publish & Share
+
+Make Repl public
+
+Add GitHub mirror
+
+Pin Replit demo link
+
+Share LinkedIn post (staged approach)
+
+🚫 COMMON REPLIT MISTAKES TO AVOID
+
+❌ Mixing stacks
+❌ Adding auth
+❌ Adding ML
+❌ Skipping determinism tests
+❌ Over-engineering UI
+
+🧠 ONE RULE TO REMEMBER
+
+If it cannot be replayed deterministically, it is not research.

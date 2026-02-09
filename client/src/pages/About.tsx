@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 export default function About() {
   return (
@@ -45,22 +46,47 @@ export default function About() {
       <Separator className="bg-primary/10" />
 
       <section className="space-y-6">
-        <h2 className="text-2xl font-semibold mono-font">Research Motivation</h2>
-        <div className="grid gap-6">
-          <Card className="bg-muted/10 border-none shadow-none">
-            <CardContent className="pt-6">
-              <p className="leading-relaxed text-muted-foreground">
-                Traditional IAM tools primarily answer "Who has access right now?" but fail to capture historical context. 
-                Real incidents exploit historical or transient identity paths that may not be visible in current snapshots. 
-                Non-human identities (tokens, service accounts) operate at different time scales and require different modeling approaches.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+        <h2 className="text-2xl font-semibold mono-font">Research Framework</h2>
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="problem">
+            <AccordionTrigger className="mono-font text-primary">The Problem: Static IAM vs. Dynamic Threats</AccordionTrigger>
+            <AccordionContent className="text-muted-foreground leading-relaxed">
+              Traditional IAM tools primarily answer "Who has access right now?" but fail to capture historical context. 
+              Real incidents exploit historical or transient identity paths that may not be visible in current snapshots. 
+              Non-human identities (tokens, service accounts) operate at different time scales and require different modeling approaches.
+            </AccordionContent>
+          </AccordionItem>
+          <AccordionItem value="model">
+            <AccordionTrigger className="mono-font text-primary">The Temporal Model: U(G, event)</AccordionTrigger>
+            <AccordionContent className="text-muted-foreground leading-relaxed">
+              Our graph engine implements a deterministic update function <code>U(G, event)</code>. 
+              There are no deletes in this research model; we only create or extend time windows. 
+              Every node and edge maintains <code>first_seen</code> and <code>last_seen</code> bounds, allowing us to reconstruct the identity state at any point in time.
+            </AccordionContent>
+          </AccordionItem>
+          <AccordionItem value="story">
+            <AccordionTrigger className="mono-font text-primary">Story: The CICD Compromise Path</AccordionTrigger>
+            <AccordionContent className="text-muted-foreground leading-relaxed">
+              Imagine a developer (Alice) whose credentials are stolen. She has access to Jenkins. 
+              Jenkins has a service account that can assume a Cloud Role. 
+              The Cloud Role is a cluster admin in Kubernetes. 
+              From K8s, the attacker finds a bridge to the OT network and eventually controls a PLC. 
+              This path only exists when we look across domain boundaries and temporal access chains.
+            </AccordionContent>
+          </AccordionItem>
+          <AccordionItem value="claims">
+            <AccordionTrigger className="mono-font text-primary">Claims & Reproducibility</AccordionTrigger>
+            <AccordionContent className="text-muted-foreground leading-relaxed">
+              1. Determinism: Replaying the same NDJSON with the same seed results in the exact same graph hash.<br/>
+              2. Traceability: Every node/edge is tied back to specific event IDs (Provenance).<br/>
+              3. Scale-agnostic: The model handles human and non-human identities using the same temporal logic.
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </section>
 
       <section className="space-y-6">
-        <h2 className="text-2xl font-semibold mono-font">Research Contributions</h2>
+        <h2 className="text-2xl font-semibold mono-font">Key Research Contributions</h2>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="p-4 rounded-lg bg-primary/5 border border-primary/10">
             <h3 className="font-bold mb-2 text-primary">Temporal Graph Model</h3>
@@ -82,8 +108,9 @@ export default function About() {
       </section>
 
       <footer className="pt-8 text-xs text-muted-foreground border-t border-primary/10">
-        <p>This is a research prototype and does not represent a commercial product. All security logic is rule-based and deterministic.</p>
+        <p>Licensed under Apache 2.0. This is a research prototype and does not represent a commercial product. All security logic is rule-based and deterministic.</p>
       </footer>
     </div>
   );
 }
+

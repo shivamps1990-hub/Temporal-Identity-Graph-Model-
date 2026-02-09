@@ -27,7 +27,7 @@ class PseudoRandom {
 export function generateScenario(name: string, seed: number = 42): NormalizedEvent[] {
   const rng = new PseudoRandom(seed);
   const events: NormalizedEvent[] = [];
-  const baseTime = new Date().toISOString(); // Start from "now" roughly
+  const baseTime = "2026-02-09T00:00:00.000Z"; // Fixed base time for research reproducibility
 
   // Helper to add event
   const addEvent = (
@@ -39,9 +39,15 @@ export function generateScenario(name: string, seed: number = 42): NormalizedEve
     targetType: string,
     risk: number = 0
   ) => {
-    const ts = new Date(Date.now() - rng.range(0, 86400000)).toISOString(); // Random time in last 24h
+    // Deterministic timestamp: baseTime - (rng seed based offset)
+    const offset = rng.range(0, 86400000);
+    const ts = new Date(new Date(baseTime).getTime() - offset).toISOString();
+    
+    // Deterministic event_id using hash of properties
+    const event_id = `evt_${subjectId}_${targetId}_${offset}`;
+    
     events.push({
-      event_id: uuidv4(),
+      event_id,
       timestamp: ts,
       subject: {
         id: subjectId,
