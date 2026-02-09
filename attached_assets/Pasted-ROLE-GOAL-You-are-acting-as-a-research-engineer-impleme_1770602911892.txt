@@ -1,0 +1,271 @@
+ROLE & GOAL
+
+You are acting as a research engineer implementing a temporal identity graph prototype.
+
+Your primary goal is model fidelity, not feature velocity.
+
+You must ensure the application strictly implements the following research model:
+
+Identity security is modeled as a directed temporal graph, updated via deterministic, replay-safe events, enabling path-based reasoning over time for human and non-human identities across IT, cloud, CI/CD, and OT.
+
+Do not optimize for UI polish.
+Do not add features that violate the model.
+
+HARD CONSTRAINTS (DO NOT VIOLATE)
+
+Backend: Python + FastAPI
+
+Frontend: React (Vite) or minimal HTML
+
+Graph: in-memory temporal graph
+
+Identity updates: event-driven only
+
+No authentication
+
+No RBAC / ABAC
+
+No ML
+
+No enforcement
+
+No SIEM features
+
+No Next.js
+
+No background jobs modifying graph state
+
+If something is not explicitly listed below, do not implement it.
+
+STEP 1 — LOCK THE MODEL (MANDATORY)
+
+Implement the core temporal graph engine exactly as specified:
+
+Formal Model (must be reflected in code)
+G = (V, E, τ)
+
+
+V = identities and resources
+
+E = directed labeled relationships
+
+τ = temporal metadata (first_seen, last_seen)
+
+Implement a single update function:
+
+U(G, event) → G'
+
+
+Properties:
+
+deterministic
+
+idempotent
+
+replay-safe
+
+monotonic (no deletes)
+
+All graph mutations MUST go through this function.
+
+STEP 2 — IMPLEMENT GRAPH ENGINE
+
+Create or verify:
+
+backend/app/model/graph_engine.py
+
+
+It must:
+
+store nodes and edges with first_seen and last_seen
+
+support apply_event(event)
+
+support snapshot_at(timestamp)
+
+support canonical_serialize()
+
+support graph_hash() using SHA256
+
+No randomness.
+No dependence on event order.
+
+STEP 3 — NORMALIZED EVENT SCHEMA
+
+Define a strict normalized event schema (Pydantic):
+
+Each event MUST include:
+
+event_id
+
+timestamp
+
+subject (id, type, platform, lifecycle_state, risk_score)
+
+relationships (label, target id/type)
+
+Reject malformed events.
+
+STEP 4 — DATASET GENERATOR (CRITICAL)
+
+Implement:
+
+backend/app/model/dataset_gen.py
+
+
+Requirements:
+
+deterministic output using --seed
+
+NDJSON output
+
+correlation IDs for multi-step identity chains
+
+time offsets that create overlapping trust windows
+
+scenarios:
+
+baseline
+
+cicd_compromise
+
+cloud_ot_bridge
+
+role_sprawl
+
+dormant_wakeup
+
+support large scale (stream to disk)
+
+This dataset is the ground truth for the demo.
+
+STEP 5 — REPLAY PIPELINE
+
+Implement:
+
+POST /events/replay
+
+
+Replay semantics:
+
+Read dataset
+
+Sort by timestamp
+
+Apply U(G, event)
+
+Compute graph_hash
+
+Return replay summary
+
+Add tests:
+
+replay same dataset twice → same hash
+
+replay shuffled dataset → same hash
+
+If this fails, STOP.
+
+STEP 6 — ANALYSIS (READ-ONLY)
+
+Implement analysis endpoints that do not mutate state:
+
+reachability (bounded path length)
+
+blast radius (reachable nodes)
+
+threat patterns (IT → OT path, orphan NHI)
+
+All outputs must include:
+
+explicit paths
+
+event evidence
+
+timestamps
+
+No alerts. No decisions.
+
+STEP 7 — UI (EXPLANATORY, NOT OPERATIONAL)
+
+UI must:
+
+visualize graph snapshot at time T
+
+provide time slider (temporal replay)
+
+allow dataset generation and replay
+
+allow path exploration
+
+show provenance when clicking nodes/edges
+
+UI must NOT:
+
+edit graph directly
+
+enforce policies
+
+hide evidence
+
+STEP 8 — RESEARCH CONTENT INTEGRATION
+
+Update Main / About / Research pages to include:
+
+problem statement
+
+core research claim
+
+formal model (with math + plain English)
+
+story-based attack walkthrough
+
+claims vs non-claims
+
+ethics and limitations
+
+Tone:
+
+neutral
+
+research-oriented
+
+explainable to lay users
+
+STEP 9 — VERIFICATION CHECKLIST (RUN BEFORE FINISHING)
+
+You must confirm:
+
+ graph_hash stable across replays
+
+ no code mutates graph outside U(G,e)
+
+ time slider changes graph state
+
+ paths disappear when time windows don’t overlap
+
+ OT identities inferred, not authenticated
+
+ datasets are synthetic
+
+ Apache-2.0 license present
+
+STEP 10 — FINAL OUTPUT
+
+When complete, provide:
+
+list of files modified
+
+replay commands
+
+expected graph_hash for seed=42 (cicd_compromise)
+
+screenshots placeholders for figures
+
+confirmation that constraints were followed
+
+Then STOP and wait for review.
+
+FINAL RULE
+
+If a feature does not directly support temporal, path-based identity reasoning, do not implement it.

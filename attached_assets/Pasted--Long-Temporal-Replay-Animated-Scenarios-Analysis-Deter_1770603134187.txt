@@ -1,0 +1,348 @@
+(Long Temporal Replay + Animated Scenarios + Analysis + Determinism Tests)
+
+ROLE
+
+You are implementing a research-grade temporal identity graph prototype.
+Your priority is model correctness, determinism, and explainability, not UI polish or product features.
+
+This system exists to visually and analytically demonstrate how identity paths emerge over time across IT, cloud, CI/CD, and OT (SCADA / PLC).
+
+HARD CONSTRAINTS (NON-NEGOTIABLE)
+
+Backend: Python + FastAPI
+
+Graph: in-memory temporal graph
+
+Updates: event-driven only
+
+Deterministic, replay-safe
+
+Frontend: React (Vite) or minimal HTML/JS
+
+No auth, no RBAC, no ML, no enforcement
+
+No Next.js, no background mutation jobs
+
+If a feature does not support temporal path-based identity reasoning, do not build it.
+
+GOAL
+
+Create a long-running, replayable visual scenario that shows:
+
+CI/CD tokens & secrets
+
+Cloud role assumption
+
+Workload identity
+
+OT gateway
+
+SCADA / PLC control
+
+Identity paths appearing and disappearing over time
+
+Animated replay on UI
+
+Structural reachability & blast radius analysis
+
+Deterministic results with tests
+
+STEP 1 — DATASET: LONG, CORRELATED, VISUAL SCENARIO
+
+Create or extend:
+
+backend/app/model/dataset_gen.py
+
+Required scenario: ot_full_attack_chain
+
+This scenario MUST generate hundreds to thousands of events over time to support a long replay animation.
+
+Entities involved
+
+Human developer
+
+CI/CD pipeline
+
+Short-lived CI/CD token
+
+Cloud IAM role
+
+Kubernetes workload
+
+Secrets manager
+
+OT gateway
+
+SCADA service
+
+PLC device
+
+Timeline narrative (must be encoded in data)
+
+Developer authenticates to CI/CD
+
+CI/CD issues short-lived token
+
+Token assumes cloud role
+
+Role reads secret
+
+Secret injected into workload
+
+Workload communicates with OT gateway
+
+Gateway talks to SCADA
+
+SCADA sends commands to PLC
+
+Token expires
+
+Path disappears
+
+Later, dormant secret reused → path reappears
+
+Dataset requirements
+
+NDJSON normalized events
+
+Deterministic with --seed
+
+Correlation IDs for each attack chain
+
+Time offsets (minutes/hours) to create overlapping and non-overlapping windows
+
+Background noise events (benign IT + OT chatter)
+
+Support:
+
+small (~200 events)
+
+medium (~10k events)
+
+large (~100k+ events, streaming write)
+
+STEP 2 — REPLAY PIPELINE (LONG ANIMATION SUPPORT)
+
+Ensure replay endpoint:
+
+POST /events/replay
+
+
+Replay semantics:
+
+Read NDJSON
+
+Sort by timestamp
+
+Apply U(G, event)
+
+Compute canonical graph_hash
+
+Store per-event replay index for animation
+
+Add support for:
+
+stepping event-by-event
+
+play / pause / speed control (UI consumes this)
+
+STEP 3 — ANALYSIS ENGINE (analysis.py)
+
+Create:
+
+backend/app/api/analysis.py
+
+Implement READ-ONLY analysis functions
+Reachability
+def reachability(graph, source_id, target_id, max_depth, timestamp)
+
+
+Operates on G(T)
+
+Returns:
+
+all paths ≤ max_depth
+
+node sequence
+
+edge labels
+
+supporting event_ids
+
+timestamps
+
+Blast Radius
+def blast_radius(graph, source_id, max_depth, timestamp)
+
+
+BFS over G(T)
+
+Returns:
+
+reachable nodes
+
+shortest path length
+
+cumulative risk (simple max or sum)
+
+path evidence
+
+Constraints
+
+No graph mutation
+
+Deterministic output ordering
+
+Paths sorted lexicographically for stability
+
+Expose APIs:
+
+GET /analysis/reachability
+
+GET /analysis/blast-radius
+
+STEP 4 — UI: LONG VISUAL TEMPORAL REPLAY
+
+Update frontend to support animated replay.
+
+Required UI components
+1. Temporal Replay Controller
+
+Play / Pause
+
+Step forward / backward
+
+Speed control (1×, 2×, 5×)
+
+Jump to timestamp
+
+2. Animated Graph View
+
+Nodes fade in/out based on first_seen / last_seen
+
+Edges animate when becoming active
+
+OT / SCADA / PLC nodes visually distinct
+
+CI/CD tokens visually ephemeral (fade quickly)
+
+3. Path Highlight Animation
+
+When reachability path exists:
+
+animate path traversal
+
+show labels per hop
+
+display “Path Exists” indicator
+
+When window closes:
+
+path disappears
+
+4. Correlation Timeline Panel
+
+For selected path:
+
+horizontal timeline of events
+
+bars showing node active intervals
+
+correlation_id shown
+
+This UI must make time and path dependency obvious to non-experts.
+
+STEP 5 — DETERMINISM & PYTESTS (MANDATORY)
+
+Create tests:
+
+backend/app/tests/test_determinism.py
+
+Tests to implement
+
+Replay determinism
+
+Replay same dataset twice
+
+Assert identical graph_hash
+
+Order independence
+
+Shuffle events
+
+Replay
+
+Assert same graph_hash
+
+Temporal correctness
+
+Query reachability at time T1 → path exists
+
+Query at time T2 → path does not exist
+
+Blast radius stability
+
+Same inputs → same ordered output
+
+Tests must pass before completion.
+
+STEP 6 — VISUAL & RESEARCH OUTPUT SUPPORT
+
+Add helper script:
+
+scripts/export_figures.py
+
+
+Functions:
+
+Export graph snapshot PNG at timestamp
+
+Export path timeline PNG
+
+Export replay summary JSON
+
+These are used for:
+
+papers
+
+slides
+
+LinkedIn demos
+
+STEP 7 — FINAL VERIFICATION CHECKLIST
+
+Before stopping, confirm:
+
+ Long replay visually shows path appearing & disappearing
+
+ CI/CD tokens are short-lived in UI
+
+ OT / SCADA / PLC visually separated
+
+ Reachability depends on time overlap
+
+ graph_hash stable across runs
+
+ All tests pass
+
+ No unauthorized features added
+
+FINAL OUTPUT REQUIRED
+
+When done, return:
+
+Files created/modified
+
+Command to generate ot_full_attack_chain dataset (seed=42)
+
+Replay command
+
+Expected graph_hash
+
+Confirmation all constraints were followed
+
+Then STOP and wait.
+
+FINAL RULE
+
+If it cannot be replayed, animated, and proven deterministic, it does not belong in this system.
