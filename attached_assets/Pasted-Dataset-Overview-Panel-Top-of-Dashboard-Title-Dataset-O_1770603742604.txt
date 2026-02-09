@@ -1,0 +1,184 @@
+Dataset Overview Panel (Top of Dashboard)
+
+Title: Dataset Overview
+
+Body copy:
+
+This dataset consists of synthetic, time-ordered identity events used to construct a temporal identity graph.
+All identities, relationships, and timestamps are generated deterministically for reproducibility.
+
+Metrics (labels exactly as below):
+
+Total events: {event_count}
+
+Time span: {start_time} → {end_time}
+
+Identities observed: {identity_count}
+
+Human: {human_count}
+
+Non-human: {nhi_count}
+
+Relationship types: {relationship_types}
+
+Domains involved: {IT | Cloud | CI/CD | OT}
+
+Footer note (small text):
+
+These statistics describe the dataset structure only and do not represent risk or severity.
+
+🔹 Scenario Description Panel (Left / Context Panel)
+
+Title: Scenario Description
+
+Body copy:
+
+This scenario is designed to illustrate a specific identity risk pattern through controlled event generation.
+Threats shown in this demo are derived from graph structure and timing, not from predefined rules or alerts.
+
+Scenario fields:
+
+Scenario name: {scenario_name}
+
+Intent: {short textual intent, e.g. "Demonstrate transitive CI/CD → Cloud → OT access"}
+
+Expected risk patterns:
+
+{pattern_1}
+
+{pattern_2}
+
+{pattern_3}
+
+Footer note:
+
+Scenarios are intentionally constructed to support analysis and explanation, not to simulate real incidents.
+
+🔹 Threat Map Panel (Core Panel)
+
+Title: Derived Threat Map (at selected time)
+
+Body copy (always visible):
+
+Threats shown here are derived interpretations of the identity graph at the selected point in time.
+They emerge from observed identity paths and temporal overlap, not from static permissions.
+
+Live summary header:
+
+At time {selected_timestamp}
+
+Threat counters (exact wording):
+
+Total derived threats: {threat_count}
+
+Threats by type:
+
+IT → OT identity paths: {count}
+
+Orphan non-human identities: {count}
+
+Excessive delegation chains: {count}
+
+Dormant identity reactivation: {count}
+
+Interaction hint (small text):
+
+Click a threat to view the identity path, timing evidence, and supporting events.
+
+🔹 Threat Detail Drawer / Modal
+
+Title: Threat Explanation
+
+Fields and copy:
+
+Threat type: {THREAT_TYPE}
+
+Why this is considered risky:
+
+This threat is derived because a continuous identity path exists between the following entities during the selected time window.
+
+Identity path (rendered visually):
+
+{Node A} → {Node B} → {Node C} → {Node D}
+
+
+Temporal validity:
+
+First observed: {first_seen}
+
+Last observed: {last_seen}
+
+Evidence:
+
+Supporting events: {event_ids}
+
+Important note (bold):
+
+This is an analytical interpretation based on identity relationships and timing.
+It does not indicate malicious activity or policy violation.
+
+🔹 Temporal Replay Panel (Bottom / Controls)
+
+Title: Temporal Replay
+
+Body copy:
+
+Move through time to observe how identity relationships appear, evolve, and disappear.
+Threats may emerge or resolve as paths become valid or invalid.
+
+Tooltip for time slider:
+
+Identity paths exist only when all required relationships overlap in time.
+
+🔹 Ethics & Scope Panel (Footer / About)
+
+Title: Scope and Responsible Use
+
+Body copy:
+
+This system is a research prototype intended for education and analytical experimentation.
+All datasets are synthetic. No real credentials, systems, or environments are represented.
+
+PART 2 — METHODS SUBSECTION (PAPER / arXiv READY)
+
+You can paste this directly into your paper under Methods or Experimental Setup.
+
+Reporting Dataset and Threat Counts
+
+To support transparency and reproducibility, we explicitly report dataset characteristics and the number of derived threat instances observed during analysis.
+
+Dataset Characterization
+
+For each experimental scenario, we report the total number of identity events, the time span covered, the number of identities observed, and the domains involved (e.g., enterprise IT, cloud, CI/CD, OT). These metrics describe the structural properties of the dataset and are not intended to measure security risk.
+
+Scenario-Driven Evaluation
+
+Scenarios are intentionally constructed to surface specific identity risk patterns (e.g., transitive delegation, orphan non-human identities, delayed blast radius). Reporting scenario-level statistics makes explicit which structural behaviors are being evaluated and avoids reliance on implicit or cherry-picked examples.
+
+Threat Instance Counts
+
+Threat counts are reported at specific points in time to demonstrate the temporal emergence and resolution of identity paths. A threat instance corresponds to a graph pattern that satisfies a predefined structural condition at a given time, such as the existence of a bounded path between an enterprise identity and an OT device.
+
+Importantly, these counts do not represent detection accuracy, incident frequency, or likelihood of compromise. They reflect only the number of graph-derived interpretations valid at the selected time.
+
+Rationale
+
+By reporting counts alongside temporal replay, we enable independent verification that:
+
+Threats are derived from identity paths rather than static assignments
+
+Threats appear and disappear as relationships overlap or expire
+
+Results are deterministic and reproducible under event replay
+
+This approach prioritizes explainability and structural reasoning over predictive performance.
+
+Final guidance (important)
+
+This UI copy + Methods text will not trigger reviewer backlash
+
+You are being explicit about limits
+
+You are not overstating capability
+
+You are demonstrating scientific discipline
